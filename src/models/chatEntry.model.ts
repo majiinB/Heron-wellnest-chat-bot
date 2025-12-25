@@ -12,7 +12,6 @@ import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateCol
  * @created 2025-12-25
  * @updated 2025-12-25
  */
-
 @Entity("chat_sessions")
 export class ChatSession {
   @PrimaryGeneratedColumn("uuid")
