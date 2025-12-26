@@ -1,93 +1,93 @@
-name: workflow
+# name: workflow
 
-on:
-  push:
-    branches:
-      - staging
-      - main
+# on:
+#   push:
+#     branches:
+#       - staging
+#       - main
 
-jobs:
-  check:
-    if: github.ref == 'refs/heads/staging'
-    runs-on: ubuntu-latest
-    container:
-      image: node:22
-    steps:
-      # Setup Node.js
-      - uses: actions/checkout@v3
+# jobs:
+#   check:
+#     if: github.ref == 'refs/heads/staging'
+#     runs-on: ubuntu-latest
+#     container:
+#       image: node:22
+#     steps:
+#       # Setup Node.js
+#       - uses: actions/checkout@v3
 
-      - uses: actions/setup-node@v3
-        with:
-          node-version: "20"
+#       - uses: actions/setup-node@v3
+#         with:
+#           node-version: "20"
 
-      # Install dependencies
-      - run: npm ci
+#       # Install dependencies
+#       - run: npm ci
 
-      # Run ESLint
-      - run: npm run lint
+#       # Run ESLint
+#       - run: npm run lint
 
-      # Run tests
-      - run: npm test -- src/tests/auth.test.ts
-        env:
-          JWT_SECRET: test-secret-key-for-ci-cd-testing-only-minimum-32-chars
+#       # Run tests
+#       - run: npm test -- src/tests/auth.test.ts
+#         env:
+#           JWT_SECRET: test-secret-key-for-ci-cd-testing-only-minimum-32-chars
 
-  build-and-deploy:
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: Production
-    env:
-      SERVICE_NAME: hw-activities-api
-      GCP_PROJECT_ID: heron-wellnest
-      REGION: us-central1
-      ARTIFACT_REGISTRY_REPO: heron-wellnest-repo
-    steps:
-      - uses: actions/checkout@v3
+#   build-and-deploy:
+#     if: github.ref == 'refs/heads/main'
+#     runs-on: ubuntu-latest
+#     environment: Production
+#     env:
+#       SERVICE_NAME: hw-activities-api
+#       GCP_PROJECT_ID: heron-wellnest
+#       REGION: us-central1
+#       ARTIFACT_REGISTRY_REPO: heron-wellnest-repo
+#     steps:
+#       - uses: actions/checkout@v3
 
-      # Setup Node.js
-      - uses: actions/setup-node@v3
-        with:
-          node-version: "20"
+#       # Setup Node.js
+#       - uses: actions/setup-node@v3
+#         with:
+#           node-version: "20"
 
-      # Install dependencies (needed for build)
-      - run: npm ci
+#       # Install dependencies (needed for build)
+#       - run: npm ci
 
-      # Run ESLint
-      - run: npm run lint
+#       # Run ESLint
+#       - run: npm run lint
 
-      # Run tests
-      - run: npm test -- src/tests/auth.test.ts
-        env:
-          JWT_SECRET: test-secret-key-for-ci-cd-testing-only-minimum-32-chars
+#       # Run tests
+#       - run: npm test -- src/tests/auth.test.ts
+#         env:
+#           JWT_SECRET: test-secret-key-for-ci-cd-testing-only-minimum-32-chars
 
-      - uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_KEY }}
+#       - uses: google-github-actions/auth@v1
+#         with:
+#           credentials_json: ${{ secrets.GCP_KEY }}
 
-      # Setup gcloud CLI (optional if you want latest version)
-      - uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ env.GCP_PROJECT_ID }}
-          version: latest
+#       # Setup gcloud CLI (optional if you want latest version)
+#       - uses: google-github-actions/setup-gcloud@v2
+#         with:
+#           project_id: ${{ env.GCP_PROJECT_ID }}
+#           version: latest
 
-      - run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+#       - run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
 
-      # Build Docker image
-      - run: docker build -t ${{env.REGION}}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{env.ARTIFACT_REGISTRY_REPO}}/${{ env.SERVICE_NAME }}:latest .
+#       # Build Docker image
+#       - run: docker build -t ${{env.REGION}}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{env.ARTIFACT_REGISTRY_REPO}}/${{ env.SERVICE_NAME }}:latest .
 
-      # Push Docker image
-      - run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO}}/${{ env.SERVICE_NAME }}:latest
+#       # Push Docker image
+#       - run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO}}/${{ env.SERVICE_NAME }}:latest
 
-      # Deploy to Cloud Run
-      - run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO}}/${{ env.SERVICE_NAME }}:latest \
-            --region ${{ env.REGION }} \
-            --platform managed \
-            --allow-unauthenticated \
-            --set-env-vars NODE_ENV=${{ vars.NODE_ENV }},DB_USER=${{ vars.DB_USER }},DB_NAME=${{vars.DB_NAME}},DB_HOST=${{ vars.DB_HOST }},DB_PORT=${{ vars.DB_PORT }},JWT_ISSUER=${{ vars.JWT_ISSUER }},JWT_AUDIENCE=${{ vars.JWT_AUDIENCE }},JWT_ALGORITHM=${{ vars.JWT_ALGORITHM }},CONTENT_ENCRYPTION_ALGORITHM=${{vars.CONTENT_ENCRYPTION_ALGORITHM}} \
-            --set-secrets DB_PASSWORD=DB_PASSWORD:latest,CONTENT_ENCRYPTION_KEY=CONTENT_ENCRYPTION_KEY:latest,JWT_SECRET=JWT_SECRET:latest \
-            --timeout=300 \
-            --concurrency=20 \
-            --min-instances=0 \
-            --max-instances=3 \
-            --cpu-boost
+#       # Deploy to Cloud Run
+#       - run: |
+#           gcloud run deploy ${{ env.SERVICE_NAME }} \
+#             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO}}/${{ env.SERVICE_NAME }}:latest \
+#             --region ${{ env.REGION }} \
+#             --platform managed \
+#             --allow-unauthenticated \
+#             --set-env-vars NODE_ENV=${{ vars.NODE_ENV }},DB_USER=${{ vars.DB_USER }},DB_NAME=${{vars.DB_NAME}},DB_HOST=${{ vars.DB_HOST }},DB_PORT=${{ vars.DB_PORT }},JWT_ISSUER=${{ vars.JWT_ISSUER }},JWT_AUDIENCE=${{ vars.JWT_AUDIENCE }},JWT_ALGORITHM=${{ vars.JWT_ALGORITHM }},CONTENT_ENCRYPTION_ALGORITHM=${{vars.CONTENT_ENCRYPTION_ALGORITHM}} \
+#             --set-secrets DB_PASSWORD=DB_PASSWORD:latest,CONTENT_ENCRYPTION_KEY=CONTENT_ENCRYPTION_KEY:latest,JWT_SECRET=JWT_SECRET:latest \
+#             --timeout=300 \
+#             --concurrency=20 \
+#             --min-instances=0 \
+#             --max-instances=3 \
+#             --cpu-boost
