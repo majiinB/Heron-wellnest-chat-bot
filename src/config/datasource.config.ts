@@ -1,4 +1,5 @@
-import { JournalEntry } from "../models/chatEntry.model.js";
+import { ChatSession} from "../models/chatSession.model.js";
+import { ChatMessage } from "../models/chatMessage.model.js";
 import { env } from "./env.config.js";
 import { DataSource } from "typeorm";
 
@@ -28,7 +29,7 @@ export const AppDataSource = new DataSource({
   username: env.DB_USER,
   password: env.DB_PASSWORD,
   database: env.DB_NAME,
-  entities: [JournalEntry],
+  entities: [ChatMessage, ChatSession],
   ...(env.NODE_ENV === "production" && {
     ssl: {
       rejectUnauthorized: false,

@@ -1,4 +1,4 @@
-import type { JournalEntry } from "../models/chatEntry.model.js";
+import type { JournalEntry } from "../models/chatSession.model.js";
 import { AppError } from "../types/appError.type.js";
 import type { EncryptedField } from "../types/encryptedField.type.js";
 import type { SafeJournalEntry } from "../types/safeJournalEntry.type.js";

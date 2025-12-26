@@ -22,12 +22,12 @@ export class ChatSession {
 
   @Column({ 
     type: "enum",
-    enum: ["open", "closed"],
+    enum: ["open", "closed", "waiting_for_bot", "escalated"],
     default: "open"
    })
-  status!: "open" | "closed";
+  status!: "open" | "closed" | "waiting_for_bot" | "escalated";
 
-  @Column({type: "uuid", nullable: true})
+  @Column({type: "uuid", nullable: true, default: null})
   insight_id!: string | null;
 
   @CreateDateColumn({ type: "timestamptz" })

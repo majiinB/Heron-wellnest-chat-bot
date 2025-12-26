@@ -1,4 +1,4 @@
-import type { JournalEntry } from "../models/chatEntry.model.js";
+import type { JournalEntry } from "../models/chatSession.model.js";
 
 /**
  * Safe Journal Entry Type

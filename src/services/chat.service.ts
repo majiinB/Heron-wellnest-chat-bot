@@ -1,6 +1,6 @@
 import { env } from "../config/env.config.js";
-import { JournalEntry } from "../models/chatEntry.model.js";
-import type { JournalEntryRepository } from "../repository/journalEntry.repository.js";
+import { JournalEntry } from "../models/chatSession.model.js";
+import type { JournalEntryRepository } from "../repository/chatSession.repository.js";
 import type { EncryptedField } from "../types/encryptedField.type.js";
 import type { PaginatedJournalEntries } from "../types/paginatedJournalEtntries.type.js";
 import type { SafeJournalEntry } from "../types/safeJournalEntry.type.js";
