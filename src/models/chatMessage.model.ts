@@ -43,6 +43,9 @@ export class ChatMessage {
   @Column({ type: "integer", nullable: false, default: 0 })
   sequence_number!: number;
 
+  @Column({ type: "boolean", default: false })
+  is_deleted!: boolean;
+
   @CreateDateColumn({ type: "timestamptz" })
   created_at!: Date;
 }

@@ -1,6 +1,6 @@
 import { And, LessThan, MoreThanOrEqual, type Repository } from "typeorm";
 import { AppDataSource } from "../config/datasource.config.js";
-import { ChatSession } from "../models/chatSession.model.js";
+import { ChatMessage } from "../models/chatMessage.model.js";
 import type { EncryptedField } from "../types/encryptedField.type.js";
 
 /**
@@ -26,11 +26,11 @@ import type { EncryptedField } from "../types/encryptedField.type.js";
  * @created 2025-09-21
  * @updated 2025-09-25
  */
-export class ChatSessionRepository {
-  private repo: Repository<ChatSession>;
+export class ChatMessageRepository {
+  private repo: Repository<ChatMessage>;
 
   constructor() {
-    this.repo = AppDataSource.getRepository(ChatSession);
+    this.repo = AppDataSource.getRepository(ChatMessage);
   }
 
   /**
@@ -39,75 +39,71 @@ export class ChatSessionRepository {
    * @param user_id - The unique identifier of the user creating the session.
    * @returns A promise that resolves to the saved chat session entity.
    */
-  async createSession(
-    user_id: string, 
-  ): Promise<ChatSession> {
+  async createMessage(
+    user_id: string,
+    session_id: string,
+    role: "student" | "bot",
+    content_encrypted: EncryptedField,
+    sequence_number: number, 
+  ): Promise<ChatMessage> {
     const entry = this.repo.create({
       user_id,
+      session_id,
+      role,
+      content_encrypted,
+      sequence_number,
     });
     return await this.repo.save(entry);
   }
 
   /**
-   * Retrieves a chat session by its unique identifier, excluding entries marked as deleted.
+   * Retrieves a chat message by its ID for a specific user.
    *
    * @param session_id - The unique identifier of the chat session to retrieve.
+   * @param message_id - The unique identifier of the chat message to retrieve.
    * @param user_id - The unique identifier of the user who owns the chat session.
    * @returns A promise that resolves to the chat session if found and not deleted, otherwise `null`.
    */
-  async findSessionById(session_id: string, user_id: string): Promise<ChatSession | null> {
+  async findMessageById(session_id: string, message_id: string, user_id: string): Promise<ChatMessage | null> {
     return await this.repo.findOne({
-      where: { session_id, user_id },
+      where: { session_id, message_id, user_id },
     });
-  }
-
-  /**
-   * Updates a chat session entry with new status and/or insight ID values.
-   *
-   * @param session_id - The unique identifier of the chat session to update.
-   * @param user_id - The unique identifier of the user who owns the chat session.
-   * @param status - (Optional) The new status for the chat session.
-   * @param insight_id - (Optional) The new insight ID for the chat session.
-   * @returns The updated chat session if found, otherwise `null`.
-   */
-  async updateSession(
-    session_id: string, 
-    user_id: string,
-    status?: "open" | "closed" | "waiting_for_bot" | "escalated",
-    insight_id?: string,
-  ): Promise <ChatSession | null> {
-    const entry = await this.findSessionById(session_id, user_id);
-    if (!entry) return null;
-
-    if (status) entry.status = status;
-    if (insight_id) entry.insight_id = insight_id;
-
-    return await this.repo.save(entry);
-  }
-
-
-  /**
-   * Permanently deletes a journal entry from the repository by its ID.
-   *
-   * @param journal_id - The unique identifier of the journal entry to delete.
-   * @param user_id - The unique identifier of the user who owns the journal entry.
-   * @returns A promise that resolves with the result of the delete operation.
-   */
-  async hardDelete(session_id: string, user_id: string): Promise<void> {
-    await this.repo.delete({session_id, user_id});
   }
 
   /**
    * Retrieves the latest chat session for a specific user.
    *
    * @param user_id - The unique identifier of the user whose latest chat session is to be fetched.
+   * @param session_id - The unique identifier of the chat session.
    * @returns A promise that resolves to the most recent chat session for the user, or `null` if none exists.
    */
-  async findLatestUserSession(user_id: string): Promise<ChatSession | null> {
+  async findLatestUserMessageBySession(user_id: string, session_id: string): Promise<ChatMessage | null> {
     return await this.repo.findOne({
-      where: { user_id },
+      where: { user_id, session_id },
       order: { created_at: "DESC" },
     });
+  }
+
+  /**
+   * Permanently deletes a chat message entry from the repository by its ID.
+   *
+   * @param session_id - The unique identifier of the chat session to delete.
+   * @param user_id - The unique identifier of the user who owns the chat session.
+   * @returns A promise that resolves with the result of the delete operation.
+   */
+  async hardDelete(session_id: string, message_id: string, user_id: string): Promise<void> {
+    await this.repo.delete({session_id, message_id, user_id});
+  }
+
+  /**
+   * Soft deletes a chat message entry by setting its `is_deleted` flag to `true`.
+   *
+   * @param session_id - The unique identifier of the chat session to soft delete.
+   * @param user_id - The unique identifier of the user who owns the chat session.
+   * @returns A promise that resolves when the soft delete operation is complete.
+   */
+  async softDelete(session_id: string, message_id: string, user_id: string): Promise<void> {
+    await this.repo.update({session_id, message_id, user_id}, { is_deleted: true });
   }
 
   /**
@@ -116,122 +112,51 @@ export class ChatSessionRepository {
    * @param user_id - The unique identifier of the user whose chat sessions are to be counted.
    * @returns A promise that resolves to the count of chat sessions for the specified user.
    */
-  async countUserSession(user_id: string): Promise<number> {
+  async countUserMessages(user_id: string, session_id: string): Promise<number> {
     return await this.repo.count({
-      where: { user_id },
+      where: { user_id, session_id },
     });
   }
 
-//   /**
-//  * Helper method to get date range based on time filter.
-//  * 
-//  * @param timeFilter - The time period filter.
-//  * @returns Object containing start and end dates.
-//  */
-//   private getDateRange(timeFilter: 'today' | 'yesterday' | 'this_week' | 'last_week'): { startDate: Date; endDate: Date } {
-//     const now = new Date();
-//     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-//     switch (timeFilter) {
-//       case 'today':
-//         return {
-//           startDate: today,
-//           endDate: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-//         };
-        
-//       case 'yesterday':
-//         const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-//         return {
-//           startDate: yesterday,
-//           endDate: today
-//         };
-        
-//       case 'this_week':
-//         const startOfWeek = new Date(today);
-//         startOfWeek.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
-//         return {
-//           startDate: startOfWeek,
-//           endDate: new Date(now.getTime() + 24 * 60 * 60 * 1000)
-//         };
-        
-//       case 'last_week':
-//         const startOfLastWeek = new Date(today);
-//         startOfLastWeek.setDate(today.getDate() - today.getDay() - 7);
-//         const endOfLastWeek = new Date(today);
-//         endOfLastWeek.setDate(today.getDate() - today.getDay());
-//         return {
-//           startDate: startOfLastWeek,
-//           endDate: endOfLastWeek
-//         };
-        
-//       default:
-//         throw new Error('Invalid time filter');
-//     }
-//   }
+    /**
+   * Retrieves chat messages for a specific session and user with cursor-based pagination.
+   *
+   * @param session_id - The unique identifier of the chat session.
+   * @param user_id - The unique identifier of the user whose chat messages are to be fetched.
+   * @param lastEntryId - (Optional) The ID of the last chat message from the previous page, used for pagination.
+   * @param limit - (Optional) The maximum number of messages to retrieve. Defaults to 10.
+   * @returns A promise that resolves to an array of chat messages, ordered by creation date in descending order.
+   */
+  async findByMessageAfterId(
+    session_id: string,
+    user_id: string, 
+    lastEntryId?: string, 
+    limit: number = 10,
+  ): Promise<ChatMessage[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const baseWhere: any = { session_id, user_id, is_deleted: false };
 
-//   /**
-//  * Retrieves all journal entries for a specific user that have not been deleted.
-//  *
-//  * @param user_id - The unique identifier of the user whose journal entries are to be fetched.
-//  * @param lastEntryId - (Optional) The ID of the last journal entry from the previous page, used for pagination.
-//  * @param limit - (Optional) The maximum number of entries to retrieve. Defaults to 10.
-//  * @param timeFilter - (Optional) Filter entries by time period: 'today', 'yesterday', 'this_week', 'last_week'. Defaults to 'all'.
-//  * @returns A promise that resolves to an array of journal entries, ordered by creation date in descending order.
-//  */
-// async findByUserAfterId(
-//   user_id: string, 
-//   lastEntryId?: string, 
-//   limit: number = 10,
-//   timeFilter: 'today' | 'yesterday' | 'this_week' | 'last_week' | 'all' = 'all'
-// ): Promise<JournalEntry[]> {
-//   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-//   const baseWhere: any = { user_id, is_deleted: false };
+    let where = baseWhere;
 
-//   // Add date filtering
-//   if (timeFilter !== 'all') {
-//     const { startDate, endDate } = this.getDateRange(timeFilter);
-//     baseWhere.created_at = And(MoreThanOrEqual(startDate), LessThan(endDate));
-//   }
+    if (lastEntryId) {
+      const lastEntry = await this.repo.findOne({ where: { message_id: lastEntryId } });
+      if (lastEntry) {
+        where = [
+          { session_id, user_id, is_deleted: false, created_at: LessThan(lastEntry.created_at) },
+          { session_id, user_id, is_deleted: false, created_at: lastEntry.created_at, message_id: LessThan(lastEntry.message_id) }
+        ];
+      }
+    }
 
-//   let where = baseWhere;
+    return this.repo.find({
+      where,
+      order: { created_at: "DESC", message_id: "DESC" },
+      take: limit,
+    });
+  }
 
-//   if (lastEntryId) {
-//     const lastEntry = await this.repo.findOne({ where: { journal_id: lastEntryId } });
-//     if (lastEntry) {
-//       if (timeFilter !== 'all') {
-//         const { startDate, endDate } = this.getDateRange(timeFilter);
-//         where = [
-//           { 
-//             ...baseWhere, 
-//             created_at: And(
-//               MoreThanOrEqual(startDate), 
-//               LessThan(endDate), 
-//               LessThan(lastEntry.created_at)
-//             ) 
-//           },
-//           { 
-//             ...baseWhere, 
-//             created_at: And(
-//               MoreThanOrEqual(startDate), 
-//               LessThan(endDate), 
-//               LessThan(lastEntry.created_at)
-//             ), 
-//             journal_id: LessThan(lastEntry.journal_id) 
-//           }
-//         ];
-//       } else {
-//         where = [
-//           { user_id, is_deleted: false, created_at: LessThan(lastEntry.created_at) },
-//           { user_id, is_deleted: false, created_at: lastEntry.created_at, journal_id: LessThan(lastEntry.journal_id) }
-//         ];
-//       }
-//     }
-//   }
-
-//   return this.repo.find({
-//     where,
-//     order: { created_at: "DESC", journal_id: "DESC" },
-//     take: limit,
-//   });
-// }
+  // findForAnalysis(
+  //   sessionId: string,
+  //   maxMessages: number
+  // ): Promise<ChatMessage[]>
 }
