@@ -3,7 +3,7 @@ import { heronAuthMiddleware } from '../middlewares/heronAuth.middleware.js';
 import { JournalController } from '../controllers/journal.controller.js';
 import { asyncHandler } from '../utils/asyncHandler.util.js';
 import { JournalEntryRepository } from '../repository/chatSession.repository.js';
-import { JournalService } from '../services/chat.service.js';
+import { JournalService } from '../services/chatSession.service.js';
 
 const router: Router = express.Router();
 const journalRepository = new JournalEntryRepository();

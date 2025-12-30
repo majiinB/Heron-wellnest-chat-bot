@@ -1,6 +1,6 @@
 import type { AuthenticatedRequest } from "../interface/authRequest.interface.js";
 import { type NextFunction, type Response} from "express";
-import type { JournalService } from "../services/chat.service.js";
+import type { JournalService } from "../services/chatSession.service.js";
 import type { ApiResponse } from "../types/apiResponse.type.js";
 import { AppError } from "../types/appError.type.js";
 import { validateUser } from "../utils/authorization.util.js";
