@@ -23,8 +23,8 @@ import type { EncryptedField } from "../types/encryptedField.type.js";
  * @file journalEntry.repository.ts
  * 
  * @author Arthur M. Artugue
- * @created 2025-09-21
- * @updated 2025-09-25
+ * @created 2025-12-29
+ * @updated 2026-01-01
  */
 export class ChatMessageRepository {
   private repo: Repository<ChatMessage>;
@@ -69,9 +69,9 @@ export class ChatMessageRepository {
       where: { session_id, message_id, user_id },
     });
   }
-
+  
   /**
-   * Retrieves the latest chat session for a specific user.
+   * Retrieves the latest chat message for a specific user.
    *
    * @param user_id - The unique identifier of the user whose latest chat session is to be fetched.
    * @param session_id - The unique identifier of the chat session.
@@ -79,7 +79,35 @@ export class ChatMessageRepository {
    */
   async findLatestUserMessageBySession(user_id: string, session_id: string): Promise<ChatMessage | null> {
     return await this.repo.findOne({
-      where: { user_id, session_id },
+      where: { user_id, session_id, role: "student", is_deleted: false },
+      order: { created_at: "DESC" },
+    });
+  }
+
+  /**
+   * Retrieves the latest bot message for a specific user.
+   * 
+   * @param user_id - The unique identifier of the user whose latest bot message is to be fetched.
+   * @param session_id - The unique identifier of the chat session.
+   * @returns A promise that resolves to the most recent bot message for the user, or `null` if none exists.
+   */
+  async findLatestBotMessageBySession(user_id: string, session_id: string): Promise<ChatMessage | null> {
+    return await this.repo.findOne({
+      where: { user_id, session_id, role: "bot", is_deleted: false },
+      order: { created_at: "DESC" },
+    });
+  }
+
+  /**
+   * Retrieves the latest chat message for a specific session.
+   *
+   * @param user_id - The unique identifier of the user whose latest chat message is to be fetched.
+   * @param session_id - The unique identifier of the chat session.
+   * @returns A promise that resolves to the most recent chat message for the user, or `null` if none exists.
+   */
+  async findLatestMessageBySession(user_id: string, session_id: string): Promise<ChatMessage | null> {
+    return await this.repo.findOne({
+      where: { user_id, session_id, is_deleted: false },
       order: { created_at: "DESC" },
     });
   }

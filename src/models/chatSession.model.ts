@@ -22,10 +22,10 @@ export class ChatSession {
 
   @Column({ 
     type: "enum",
-    enum: ["active", "ended", "waiting_for_bot", "escalated"],
+    enum: ["active", "ended", "waiting_for_bot", "escalated", "failed"],
     default: "active"
    })
-  status!: "active" | "ended" | "waiting_for_bot" | "escalated";
+  status!: "active" | "ended" | "waiting_for_bot" | "escalated" | "failed";
 
   @Column({type: "uuid", nullable: true, default: null})
   insight_id!: string | null;

@@ -1,4 +1,4 @@
-import type { SafeJournalEntry } from "./safeJournalEntry.type.js";
+import type { SafeJournalEntry } from "./safeChatMessage.type.js";
 
 export type PaginatedJournalEntries = {
   entries: SafeJournalEntry[];

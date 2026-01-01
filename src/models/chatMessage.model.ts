@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, Unique } from "typeorm";
 import type { EncryptedField } from "../types/encryptedField.type.js";
 
 /**
@@ -11,9 +11,10 @@ import type { EncryptedField } from "../types/encryptedField.type.js";
  *
  * @author Arthur M. Artugue
  * @created 2025-12-25
- * @updated 2025-12-25
+ * @updated 2025-12-31
  */
 @Entity("chat_messages")
+@Unique("unique_session_sequence", ["session_id", "sequence_number"])
 export class ChatMessage {
   @PrimaryGeneratedColumn("uuid")
   message_id!: string;

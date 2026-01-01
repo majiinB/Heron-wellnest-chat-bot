@@ -1,38 +1,36 @@
-import type { JournalEntry } from "../models/chatSession.model.js";
+import type { ChatMessage } from "../models/chatMessage.model.js";
 import { AppError } from "../types/appError.type.js";
 import type { EncryptedField } from "../types/encryptedField.type.js";
-import type { SafeJournalEntry } from "../types/safeJournalEntry.type.js";
+import type { SafeChatMessage } from "../types/safeChatMessage.type.js";
 
 /**
- * Converts an encrypted journal entry into a safe, decrypted format.
+ * Converts an encrypted chat message into a safe, decrypted format.
  *
  * Decrypts the `title_encrypted` and `content_encrypted` fields of the provided
- * `JournalEntry` using the given `decrypt` function, and returns a `SafeJournalEntry`
- * with the decrypted `title` and `content` fields. If decryption fails, throws an
+ * `ChatMessage` using the given `decrypt` function, and returns a `SafeChatMessage`
+ * with the decrypted `message` field. If decryption fails, throws an
  * `AppError` with a 500 status code.
  *
  * @param entry - The encrypted journal entry to be converted.
  * @param decrypt - A function that decrypts a field containing `iv`, `content`, and `tag`.
- * @returns A `SafeJournalEntry` with decrypted `title` and `content`.
+ * @returns A `SafeChatMessage` with decrypted `message`.
  * @throws {AppError} If decryption fails.
  */
-export function toSafeJournalEntry(
-  entry: JournalEntry, 
-  decrypt: (field: EncryptedField) => string): SafeJournalEntry {
+export function toSafeChatMessage(
+  message: ChatMessage, 
+  decrypt: (field: EncryptedField) => string): SafeChatMessage {
   try {
-    const { title_encrypted, content_encrypted, wellness_state, ...rest } = entry;
+    const { content_encrypted, ...rest } = message;
     return {
       ...rest,
-      title: decrypt(title_encrypted),
-      content: decrypt(content_encrypted),
-      wellness_state
+      message: decrypt(content_encrypted),
     };
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     throw new AppError(
       500,
       'DECRYPTION_ERROR',
-      'Failed to decrypt journal entry',
+      'Failed to decrypt chat message',
       true
     );
   }
@@ -46,10 +44,10 @@ export function toSafeJournalEntry(
  * @param decrypt - A function that decrypts a field containing `iv`, `content`, and `tag`.
  * @returns An array of sanitized journal entries.
  */
-export function toSafeJournalEntries(
-  entries: JournalEntry[],
-  decrypt: (field: EncryptedField) => string): SafeJournalEntry[] {
-  return entries.map(e => toSafeJournalEntry(e, decrypt));
+export function toSafeChatMessages(
+  entries: ChatMessage[],
+  decrypt: (field: EncryptedField) => string): SafeChatMessage[] {
+  return entries.map(e => toSafeChatMessage(e, decrypt));
 }
 
 /**

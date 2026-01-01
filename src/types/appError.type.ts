@@ -13,12 +13,14 @@ export class AppError extends Error {
   public statusCode: number;
   public code: string;
   public isOperational: boolean;
+  public internalCode?: string;
 
-  constructor(statusCode: number, code: string, message: string, isOperational = true) {
+  constructor(statusCode: number, code: string, message: string, isOperational = true, internalCode?: string) {
     super(message);
     this.statusCode = statusCode;
     this.code = code;
     this.isOperational = isOperational;
+    this.internalCode = internalCode;
 
     // Set the prototype explicitly to maintain the correct prototype chain
     Object.setPrototypeOf(this, new.target.prototype);

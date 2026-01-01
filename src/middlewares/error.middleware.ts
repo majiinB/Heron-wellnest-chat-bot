@@ -4,6 +4,7 @@ import { AppError } from "../types/appError.type.js";
 import { env } from "../config/env.config.js";
 import { logger } from "../utils/logger.util.js";
 import type { ApiResponse } from "../types/apiResponse.type.js";
+import type { int } from "zod";
 
 /**
  * Error handling middleware for Express applications.
@@ -46,6 +47,7 @@ export function errorMiddleware(
       code: isAppError ? err.code : undefined,
       path: req.path,
       method: req.method,
+      internalCode: isAppError ? err.internalCode : undefined,
     });
   } else {
     // Always log stack traces for unexpected errors (critical for production debugging)

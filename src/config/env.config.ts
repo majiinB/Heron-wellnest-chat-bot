@@ -42,10 +42,10 @@ export const envSchema = z.object({
   // CORS_ORIGIN: z.string().url(),
 
   // Encryption
-  CONTENT_ENCRYPTION_KEY: z.string().min(32, "CONTENT_ENCRYPTION_KEY must be at least 32 characters").default("default_content_encryption_key_1234"),
-  CONTENT_ENCRYPTION_ALGORITHM: z.enum(["aes-256-gcm"]).default("aes-256-gcm"),
-  CONTENT_ENCRYPTION_IV_LENGTH: z.coerce.number().default(16), // in bytes
-  CONTENT_ENCRYPTION_KEY_LENGTH: z.coerce.number().default(32), // in bytes
+  MESSAGE_CONTENT_ENCRYPTION_KEY: z.string().min(32, "CONTENT_ENCRYPTION_KEY must be at least 32 characters").default("default_content_encryption_key_1234"),
+  MESSAGE_CONTENT_ENCRYPTION_ALGORITHM: z.enum(["aes-256-gcm"]).default("aes-256-gcm"),
+  MESSAGE_CONTENT_ENCRYPTION_IV_LENGTH: z.coerce.number().default(16), // in bytes
+  MESSAGE_CONTENT_ENCRYPTION_KEY_LENGTH: z.coerce.number().default(32), // in bytes
 
   // Pub/Sub
   PUBSUB_JOURNAL_TOPIC: z.string().min(1, "PUBSUB_JOURNAL_TOPIC is required").default("journal-topic"),

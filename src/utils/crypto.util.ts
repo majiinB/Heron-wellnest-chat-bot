@@ -2,8 +2,8 @@ import crypto from "crypto";
 import { env } from "../config/env.config.js";
 import type { EncryptedField } from "../types/encryptedField.type.js";
 
-const ALGORITHM: "aes-256-gcm" = env.CONTENT_ENCRYPTION_ALGORITHM;
-const IV_LENGTH: number = env.CONTENT_ENCRYPTION_IV_LENGTH
+const ALGORITHM: "aes-256-gcm" = env.MESSAGE_CONTENT_ENCRYPTION_ALGORITHM;
+const IV_LENGTH: number = env.MESSAGE_CONTENT_ENCRYPTION_IV_LENGTH
 
 // Derive a 256-bit key from the secret
 function getKey(secret: string): Buffer {

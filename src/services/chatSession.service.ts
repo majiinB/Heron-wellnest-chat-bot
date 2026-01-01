@@ -6,7 +6,8 @@ import { AppError } from "../types/appError.type.js";
 
 const ALLOWED_TRANSITIONS: Record<ChatSession["status"], ChatSession["status"][]> = {
   "active": ["ended", "waiting_for_bot", "escalated"],
-  "waiting_for_bot": ["active", "ended", "escalated"],
+  "waiting_for_bot": ["active", "ended", "escalated", "failed"],
+  "failed": ["active", "ended", "escalated"],
   "escalated": [],
   "ended": [],
 };
@@ -14,8 +15,7 @@ const ALLOWED_TRANSITIONS: Record<ChatSession["status"], ChatSession["status"][]
 /**
  * Service class for managing chat session entries.
  *
- * @description Provides methods to create, retrieve, update, and delete chat session entries.
- * Handles content encryption/decryption before interacting with the repository layer.
+ * @description Provides methods to create, retrieve, update chat session entries.
  *
  * @example
  * ```typescript
@@ -28,11 +28,10 @@ const ALLOWED_TRANSITIONS: Record<ChatSession["status"], ChatSession["status"][]
  * 
  * @author Arthur M. Artugue
  * @created 2025-12-30
- * @updated 2025-12-30
+ * @updated 2026-01-01
  */
 export class ChatSessionService {
   private chatSessionRepo : ChatSessionRepository;
-  private secret: string;
 
   /**
    * Creates an instance of the JournalService.
@@ -43,7 +42,6 @@ export class ChatSessionService {
    */
   constructor(chatSessionRepo : ChatSessionRepository) {
     this.chatSessionRepo = chatSessionRepo;
-    this.secret = env.CONTENT_ENCRYPTION_KEY;
   }
 
   /**

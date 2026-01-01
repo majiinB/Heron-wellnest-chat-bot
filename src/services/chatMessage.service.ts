@@ -1,21 +1,23 @@
 import { env } from "../config/env.config.js";
 import { ChatSession } from "../models/chatSession.model.js";
-import type { ChatSessionRepository } from "../repository/chatSession.repository.js";
+import { ChatMessage } from "../models/chatMessage.model.js";
+import { ChatMessageRepository } from "../repository/chatMessage.repository.js";
+import { ChatSessionService } from "./chatSession.service.js";
 import { AppError } from "../types/appError.type.js";
 import type { EncryptedField } from "../types/encryptedField.type.js";
 import type { PaginatedJournalEntries } from "../types/paginatedJournalEtntries.type.js";
-import type { SafeJournalEntry } from "../types/safeJournalEntry.type.js";
 import { decrypt, encrypt } from "../utils/crypto.util.js";
-import { toSafeJournalEntries, toSafeJournalEntry } from "../utils/journal.util.js";
+import { toSafeChatMessage, toSafeChatMessages } from "../utils/message.util.js";
 import { publishMessage } from "../utils/pubsub.util.js";
+import type { SafeChatMessage } from "../types/safeChatMessage.type.js";
+import { logger } from "../utils/logger.util.js";
+import { log } from "console";
 
-// Define allowed status transitions for chat sessions
-const ALLOWED_TRANSITIONS: Record<ChatSession["status"], ChatSession["status"][]> = {
-  "active": ["ended", "waiting_for_bot", "escalated"],
-  "waiting_for_bot": ["active", "ended", "escalated"],
-  "escalated": [],
-  "ended": [],
-};
+const BLOCKED_STATUSES: ChatSession["status"][] = [
+  "waiting_for_bot",
+  "ended",
+  "escalated"
+];
 
 /**
  * Service class for managing chat session entries.
@@ -41,217 +43,256 @@ const ALLOWED_TRANSITIONS: Record<ChatSession["status"], ChatSession["status"][]
  * 
  * @author Arthur M. Artugue
  * @created 2025-12-30
- * @updated 2025-12-30
+ * @updated 2025-12-31
  */
-export class ChatSessionService {
-  private chatSessionRepo : ChatSessionRepository;
+export class ChatMessageService {
+  private chatMessageRepo : ChatMessageRepository;
+  private chatSessionService: ChatSessionService;
   private secret: string;
   private readonly decryptField = (field: EncryptedField): string => decrypt(field, this.secret);
 
 
   /**
-   * Creates an instance of the JournalService.
+   * Creates an instance of the ChatMessageService.
    * 
-   * @param journalRepo - The repository used for accessing and managing journal entries.
+   * @param chatMessageRepo - The repository used for accessing and managing chat messages.
+   * @param chatSessionService - The service used for managing chat sessions.
    * 
-   * Initializes the journal repository and sets the encryption key from environment variables.
+   * Initializes the chat message repository and sets the encryption key from environment variables.
    */
-  constructor(chatSessionRepo : ChatSessionRepository) {
-    this.chatSessionRepo = chatSessionRepo;
-    this.secret = env.CONTENT_ENCRYPTION_KEY;
+  constructor(chatMessageRepo : ChatMessageRepository, chatSessionService: ChatSessionService) {
+    this.chatMessageRepo = chatMessageRepo;
+    this.chatSessionService = chatSessionService;
+    this.secret = env.MESSAGE_CONTENT_ENCRYPTION_KEY;
   }
 
-  /**
-   * Creates a new chat session for the specified user.
-   *
-   * If an open session already exists for the user, it returns that session instead.
-   * 
-   * @param userId - The unique identifier of the user for whom the session is created.
-   * @returns A promise that resolves to the newly created `ChatSession`.
-   */
-  public async createNewSession(userId: string): Promise<ChatSession> {
-    // Check if an open session already exists for the user. If so, return it.
-    const existingSession = await this.chatSessionRepo.findLatestUserSession(userId);
-    if (existingSession) return existingSession;
-    
-    // Create a new session
-    const session : ChatSession = await this.chatSessionRepo.createSession(userId);
-    return session;
-  }
 
   /**
-   * Retrieves a chat session by its ID for the specified user.
+   * Creates a new chat message for the specified user in a session.
    *
-   * @param sessionId - The unique identifier of the chat session to retrieve.
-   * @param userId - The unique identifier of the user who owns the chat session.
-   * @returns A promise that resolves to the `ChatSession` if found, otherwise `null`.
-   */
-  public async getSessionById(sessionId: string, userId: string): Promise<ChatSession | null> {
-    const session = await this.chatSessionRepo.findSessionById(sessionId, userId);
-    return session;
-  }
-
-  /**
-   * Closes an active chat session by updating its status to 'ended'.
+   * Encrypts the provided content using the service's secret before storing it.
+   * Enforces strict message ordering: rejects concurrent user messages as the bot
+   * must reply first before the user can send another message.
    *
-   * @param sessionId - The unique identifier of the chat session to close.
-   * @param userId - The unique identifier of the user who owns the chat session.
-   * @returns A promise that resolves to the updated `ChatSession` if found and closed, otherwise `null`.
+   * @param userId - The unique identifier of the user creating the message.
+   * @param sessionId - The unique identifier of the chat session.
+   * @param content - The plain text content of the chat message.
+   * @returns A promise that resolves to the newly created `SafeChatMessage`.
+   * @throws {AppError} If session is not found, unauthorized, not active, or if concurrent messages are detected.
    */
-  public async closeSession(sessionId: string, userId: string): Promise<ChatSession | null> {
-    const session = await this.chatSessionRepo.findSessionById(sessionId, userId);
-    if (!session) return null;
-
-    if(!ALLOWED_TRANSITIONS[session.status].includes('ended')) {
+  public async createNewMessage(userId: string, sessionId: string, content: string): Promise<SafeChatMessage> {
+    const session: ChatSession | null = await this.chatSessionService.getSessionById(sessionId, userId);
+    if (!session) {
       throw new AppError(
-        400,
-        "INVALID_STATUS_TRANSITION",
-        `Cannot transition status from '${session.status}' to 'ended'.`,
+        404,
+        "SESSION_NOT_FOUND",
+        "Chat session not found for user",
         true
       );
     }
-    session.status = "ended";
 
-    return await this.chatSessionRepo.updateSession(session);
-  }
-
-
-  /**
-   * Creates a new journal entry for the specified user.
-   *
-   * Encrypts the provided content using the service's secret before storing it.
-   * Returns the created `JournalEntry` object.
-   *
-   * @param userId - The unique identifier of the user creating the entry.
-   * @param content - The plain text content of the journal entry.
-   * @returns A promise that resolves to the newly created `JournalEntry`.
-   */
-  public async createNew(userId: string, title: string, content: string): Promise<SafeJournalEntry> {
-
-    const encryptedContent = encrypt(content, this.secret);
-    const encryptedTitle = encrypt(title, this.secret);
-
-    const entry : JournalEntry = await this.journalRepo.createEntry(userId, encryptedTitle, encryptedContent);
-
-    await publishMessage(env.PUBSUB_JOURNAL_TOPIC, {
-      eventType: 'JOURNAL_ENTRY_CREATED',
-      userId,
-      journalId: entry.journal_id,
-      timestamp: new Date().toISOString(),
-    });
-
-    return toSafeJournalEntry(entry, this.decryptField);
-
-  }
-
-  /**
- * Retrieves a list of journal entries for a specific user, optionally paginated by the last entry ID.
- * Decrypts the content of each entry before returning.
- *
- * @param userId - The unique identifier of the user whose journal entries are to be retrieved.
- * @param limit - The maximum number of entries to return. Defaults to 10.
- * @param lastEntryId - (Optional) The ID of the last entry from the previous page, used for pagination.
- * @param timeFilter - (Optional) Filter entries by time period: 'today', 'yesterday', 'this_week', 'last_week'. Defaults to 'all'.
- * @returns A promise that resolves to an array of decrypted journal entries for the user.
- */
-  public async getEntriesByUser(
-    userId: string,
-    limit: number = 10,
-    lastEntryId?: string,
-    timeFilter: 'today' | 'yesterday' | 'this_week' | 'last_week' | 'all' = 'all'
-  ) : Promise<PaginatedJournalEntries> {
-    const fetchLimit: number = limit + 1; // Fetch one extra to check if there's more
-
-    const entries : JournalEntry[] = await this.journalRepo.findByUserAfterId(userId, lastEntryId, fetchLimit, timeFilter);
-
-    const hasMore = entries.length > limit;
-
-    // If more, remove the extra entry
-    const slicedEntries = hasMore ? entries.slice(0, limit) : entries;
-
-    return {
-      entries: toSafeJournalEntries(slicedEntries, this.decryptField),
-      hasMore,
-      nextCursor: hasMore ? slicedEntries[slicedEntries.length - 1].journal_id : undefined,
-    };
-  }
-
-  /**
-   * Retrieves a journal entry by its ID, decrypting its content before returning.
-   *
-   * @param journalId - The unique identifier of the journal entry to retrieve.
-   * @param userId - The unique identifier of the user who owns the journal entry.
-   * @returns A promise that resolves to the journal entry with decrypted content, or `null` if not found.
-   */
-  public async getEntryById(journalId: string, userId: string): Promise<SafeJournalEntry | null> {
-    const entry = await this.journalRepo.findById(journalId, userId);
-    if (!entry) return null;
-
-    return toSafeJournalEntry(entry, this.decryptField);
-  }
-
-  /**
-   * Updates a journal entry with new content and/or mood.
-   *
-   * If `content` is provided, it will be encrypted before updating the entry.
-   * The method returns the updated journal entry with decrypted content.
-   * If no entry is found for the given `journalId`, it returns `null`.
-   *
-   * @param journalId - The unique identifier of the journal entry to update.
-   * @param userId - The unique identifier of the user who owns the journal entry.
-   * @param title - (Optional) The new title for the journal entry.
-   * @param content - (Optional) The new content for the journal entry.
-   * @returns A promise that resolves to the updated journal entry with decrypted content, or `null` if not found.
-   */
-  public async updateEntry(journalId: string, userId: string, title?: string, content?: string) : Promise<SafeJournalEntry | null> {
-    let encryptedTitle : EncryptedField | undefined;
-    let encryptedContent : EncryptedField | undefined;
-
-    if (title) {
-      encryptedTitle = encrypt(title, this.secret);
-    }
-    if (content) {
-      encryptedContent = encrypt(content, this.secret);
+    if(BLOCKED_STATUSES.includes(session.status)) {
+      throw new AppError(
+        404,
+        "SESSION_NOT_FOUND",
+        "Chat session not found for user",
+        true,
+        "SESSION_NOT_ACTIVE"
+      );
     }
 
-    const updatedEntry = await this.journalRepo.updateEntry(journalId, userId, encryptedTitle, encryptedContent);
+    const mostRecentMessage: ChatMessage | null = await this.chatMessageRepo.findLatestMessageBySession(userId, sessionId);
+    const nextSequenceNumber: number = mostRecentMessage ? mostRecentMessage.sequence_number + 1 : 0;
 
-    if (!updatedEntry) return null;
+    const encryptedContent: EncryptedField = encrypt(content, this.secret);
 
-    await publishMessage(env.PUBSUB_JOURNAL_TOPIC, {
-      eventType: 'JOURNAL_ENTRY_UPDATED',
-      userId,
-      journalId: updatedEntry.journal_id,
-      timestamp: new Date().toISOString(),
-    });
+    try {
+      const entry: ChatMessage = await this.chatMessageRepo.createMessage(userId, sessionId, "student", encryptedContent, nextSequenceNumber);
 
-    return toSafeJournalEntry(updatedEntry, this.decryptField);
+      // await publishMessage(env.PUBSUB_CHAT_TOPIC, {
+      //   eventType: 'CHAT_MESSAGE_CREATED',
+      //   userId,
+      //   sessionId,
+      //   messageId: entry.message_id,
+      //   timestamp: new Date().toISOString(),
+      // });
+
+      await this.chatSessionService.markWaitingForBot(sessionId, userId);
+
+      return toSafeChatMessage(entry, this.decryptField);
+    } catch (error: any) {
+      // Check if it's a unique constraint violation (PostgreSQL error code 23505)
+      if (error.code === '23505' && error.constraint === 'unique_session_sequence') {
+        throw new AppError(
+          409,
+          "MESSAGE_SEQUENCE_CONFLICT",
+          "Please wait for the bot to respond before sending another message",
+          true,
+          "CONCURRENT_MESSAGE_DETECTED"
+        );
+      }
+      
+      throw error;
+    }
   }
 
   /**
-   * Soft deletes a journal entry by its ID.
+   * Retrieves the bot's response message for a specific user and session.
+   *
+   * If the session is not found or not in a state to receive bot responses, returns `null`.
    * 
-   * Marks the specified journal entry as deleted without permanently removing it from the database.
+   * Ensures that the bot's latest message is indeed a response to the user's latest message
+   * by comparing sequence numbers.
    *
-   * @param journalId - The unique identifier of the journal entry to be soft deleted.
-   * @param userId - The unique identifier of the user who owns the journal entry.
-   * @returns A promise that resolves when the operation is complete.
+   * @param userId - The unique identifier of the user whose bot response is to be retrieved.
+   * @param sessionId - The unique identifier of the chat session.
+   * @param latestUserMessageId - (Optional) The ID of the user's latest message to validate the bot's response against.
+   * @returns A promise that resolves to the `SafeChatMessage` containing the bot's response, or `null` if not found or invalid.
    */
-  public async softDeleteEntry(journalId: string, userId: string): Promise<boolean> {
+  public async getBotResponse(userId: string, sessionId: string, latestUserMessageId?: string): Promise<SafeChatMessage | null> {
+    const session = await this.chatSessionService.getSessionById(sessionId, userId);
+    if (!session) {
+      logger.warn(`Session not found for user ${userId} and session ${sessionId} when fetching bot response.`);
+      return null;
+    }
 
-    const entry = await this.journalRepo.softDelete(journalId, userId);
+    if (!["waiting_for_bot", "active"].includes(session.status)) {
+      return null;
+    }
 
-    return entry !== null;
+    // Ensure the latest user message ID is provided. If not, fetch the latest user message.
+    let userMessage: ChatMessage | null = null;
+
+    if (latestUserMessageId) {
+      userMessage = await this.chatMessageRepo.findMessageById(sessionId, latestUserMessageId, userId);
+    }
+
+    if (!userMessage) {
+      userMessage = await this.chatMessageRepo.findLatestUserMessageBySession(userId, sessionId);
+    }
+
+    if (!userMessage) return null; 
+
+    const botMessage: ChatMessage | null = await this.chatMessageRepo.findLatestBotMessageBySession(userId, sessionId);
+    
+    if (!botMessage) {
+      logger.info(`Bot message not found for user ${userId} and session ${sessionId} when fetching bot response.`);
+      return null;
+    }
+    if (botMessage.sequence_number <= userMessage.sequence_number) return null;
+
+    await this.chatSessionService.markActive(sessionId, userId);
+    return toSafeChatMessage(botMessage, this.decryptField);
   }
 
-  /**
-   * Permanently deletes a journal entry by its ID.
-   * This operation removes the entry from the database and cannot be undone.
-   *
-   * @param journalId - The unique identifier of the journal entry to delete.
-   * @returns A promise that resolves when the deletion is complete.
-   */
-  public async hardDeleteEntry(journalId: string, userId: string): Promise<void> {
-    this.journalRepo.hardDelete(journalId, userId);
-  }
+//   /**
+//  * Retrieves a list of journal entries for a specific user, optionally paginated by the last entry ID.
+//  * Decrypts the content of each entry before returning.
+//  *
+//  * @param userId - The unique identifier of the user whose journal entries are to be retrieved.
+//  * @param limit - The maximum number of entries to return. Defaults to 10.
+//  * @param lastEntryId - (Optional) The ID of the last entry from the previous page, used for pagination.
+//  * @param timeFilter - (Optional) Filter entries by time period: 'today', 'yesterday', 'this_week', 'last_week'. Defaults to 'all'.
+//  * @returns A promise that resolves to an array of decrypted journal entries for the user.
+//  */
+//   public async getEntriesByUser(
+//     userId: string,
+//     limit: number = 10,
+//     lastEntryId?: string,
+//     timeFilter: 'today' | 'yesterday' | 'this_week' | 'last_week' | 'all' = 'all'
+//   ) : Promise<PaginatedJournalEntries> {
+//     const fetchLimit: number = limit + 1; // Fetch one extra to check if there's more
+
+//     const entries : JournalEntry[] = await this.journalRepo.findByUserAfterId(userId, lastEntryId, fetchLimit, timeFilter);
+
+//     const hasMore = entries.length > limit;
+
+//     // If more, remove the extra entry
+//     const slicedEntries = hasMore ? entries.slice(0, limit) : entries;
+
+//     return {
+//       entries: toSafeJournalEntries(slicedEntries, this.decryptField),
+//       hasMore,
+//       nextCursor: hasMore ? slicedEntries[slicedEntries.length - 1].journal_id : undefined,
+//     };
+//   }
+
+//   /**
+//    * Retrieves a journal entry by its ID, decrypting its content before returning.
+//    *
+//    * @param journalId - The unique identifier of the journal entry to retrieve.
+//    * @param userId - The unique identifier of the user who owns the journal entry.
+//    * @returns A promise that resolves to the journal entry with decrypted content, or `null` if not found.
+//    */
+//   public async getEntryById(journalId: string, userId: string): Promise<SafeJournalEntry | null> {
+//     const entry = await this.journalRepo.findById(journalId, userId);
+//     if (!entry) return null;
+
+//     return toSafeJournalEntry(entry, this.decryptField);
+//   }
+
+//   /**
+//    * Updates a journal entry with new content and/or mood.
+//    *
+//    * If `content` is provided, it will be encrypted before updating the entry.
+//    * The method returns the updated journal entry with decrypted content.
+//    * If no entry is found for the given `journalId`, it returns `null`.
+//    *
+//    * @param journalId - The unique identifier of the journal entry to update.
+//    * @param userId - The unique identifier of the user who owns the journal entry.
+//    * @param title - (Optional) The new title for the journal entry.
+//    * @param content - (Optional) The new content for the journal entry.
+//    * @returns A promise that resolves to the updated journal entry with decrypted content, or `null` if not found.
+//    */
+//   public async updateEntry(journalId: string, userId: string, title?: string, content?: string) : Promise<SafeJournalEntry | null> {
+//     let encryptedTitle : EncryptedField | undefined;
+//     let encryptedContent : EncryptedField | undefined;
+
+//     if (title) {
+//       encryptedTitle = encrypt(title, this.secret);
+//     }
+//     if (content) {
+//       encryptedContent = encrypt(content, this.secret);
+//     }
+
+//     const updatedEntry = await this.journalRepo.updateEntry(journalId, userId, encryptedTitle, encryptedContent);
+
+//     if (!updatedEntry) return null;
+
+//     await publishMessage(env.PUBSUB_JOURNAL_TOPIC, {
+//       eventType: 'JOURNAL_ENTRY_UPDATED',
+//       userId,
+//       journalId: updatedEntry.journal_id,
+//       timestamp: new Date().toISOString(),
+//     });
+
+//     return toSafeJournalEntry(updatedEntry, this.decryptField);
+//   }
+
+//   /**
+//    * Soft deletes a journal entry by its ID.
+//    * 
+//    * Marks the specified journal entry as deleted without permanently removing it from the database.
+//    *
+//    * @param journalId - The unique identifier of the journal entry to be soft deleted.
+//    * @param userId - The unique identifier of the user who owns the journal entry.
+//    * @returns A promise that resolves when the operation is complete.
+//    */
+//   public async softDeleteEntry(journalId: string, userId: string): Promise<boolean> {
+
+//     const entry = await this.journalRepo.softDelete(journalId, userId);
+
+//     return entry !== null;
+//   }
+
+//   /**
+//    * Permanently deletes a journal entry by its ID.
+//    * This operation removes the entry from the database and cannot be undone.
+//    *
+//    * @param journalId - The unique identifier of the journal entry to delete.
+//    * @returns A promise that resolves when the deletion is complete.
+//    */
+//   public async hardDeleteEntry(journalId: string, userId: string): Promise<void> {
+//     this.journalRepo.hardDelete(journalId, userId);
+//   }
 }
