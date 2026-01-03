@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn, UpdateDateColumn, VersionColumn } from "typeorm";
 
 /**
  * @file chatSession.model.ts
@@ -10,9 +10,13 @@ import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateCol
  *
  * @author Arthur M. Artugue
  * @created 2025-12-25
- * @updated 2025-12-25
+ * @updated 2026-01-03
  */
 @Entity("chat_sessions")
+@Index("idx_one_active_session_per_user", ["user_id"], { 
+  where: "status IN ('active', 'waiting_for_bot', 'failed')",
+  unique: true 
+})
 export class ChatSession {
   @PrimaryGeneratedColumn("uuid")
   session_id!: string;
@@ -35,4 +39,7 @@ export class ChatSession {
 
   @UpdateDateColumn({ type: "timestamptz" })
   updated_at!: Date;
+
+  @VersionColumn()
+  version!: number;
 }

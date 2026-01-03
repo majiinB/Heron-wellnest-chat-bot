@@ -24,7 +24,7 @@ import { AppError } from "../types/appError.type.js";
  * 
  * @author Arthur M. Artugue
  * @created 2025-12-26
- * @updated 2025-12-31
+ * @updated 2026-01-03
  */
 export class ChatSessionRepository {
   private repo: Repository<ChatSession>;
@@ -37,15 +37,31 @@ export class ChatSessionRepository {
    * Creates a new chat session for a user.
    *
    * @param userId - The unique identifier of the user creating the session.
-   * @returns A promise that resolves to the saved chat session entity.
+   * @returns A promise that resolves to an object containing the session and whether it was newly created.
+   * 
+   * @remarks
+   * Handles race conditions by catching unique constraint violations.
+   * If another request creates an active session concurrently, fetches and returns that session with created=false.
    */
   async createSession(
     userId: string, 
-  ): Promise<ChatSession> {
+  ): Promise<{ session: ChatSession; created: boolean }> {
     const entry = this.repo.create({
       user_id: userId,
     });
-    return await this.repo.save(entry);
+    
+    try {
+      const session = await this.repo.save(entry);
+      return { session, created: true };
+    } catch (error: any) {
+      // Handle unique constraint violation (23505 = PostgreSQL unique_violation)
+      if (error.code === '23505' && error.constraint?.includes('active_session')) {
+        // Another request created the session, fetch and return it
+        const existing = await this.findLatestUserSession(userId);
+        if (existing) return { session: existing, created: false };
+      }
+      throw error;
+    }
   }
 
   /**
@@ -67,6 +83,11 @@ export class ChatSessionRepository {
    * @param chatSession - The chat session entity to update.
    * 
    * @returns The updated chat session if found, otherwise `null`.
+   * 
+   * @throws OptimisticLockVersionMismatchError if another request modified the session concurrently.
+   * @remarks
+   * Uses optimistic locking via version column to prevent lost updates.
+   * If concurrent modification occurs, TypeORM will throw an error - caller should handle by retrying.
    */
   async updateSession(chatSession: ChatSession): Promise <ChatSession | null> {
     return await this.repo.save(chatSession);
@@ -85,14 +106,21 @@ export class ChatSessionRepository {
   }
 
   /**
-   * Retrieves the latest chat session for a specific user.
+   * Retrieves the latest in-progress chat session for a specific user.
+   * 
+   * In-progress sessions are those not in terminal states (ended/escalated).
+   * This includes: active, waiting_for_bot, and failed (can transition back).
    *
    * @param user_id - The unique identifier of the user whose latest chat session is to be fetched.
-   * @returns A promise that resolves to the most recent chat session for the user, or `null` if none exists.
+   * @returns A promise that resolves to the most recent in-progress session for the user, or `null` if none exists.
    */
   async findLatestUserSession(userId: string): Promise<ChatSession | null> {
     return await this.repo.findOne({
-      where: { user_id: userId, status: "active" },
+      where: [
+        { user_id: userId, status: "active" },
+        { user_id: userId, status: "waiting_for_bot" },
+        { user_id: userId, status: "failed" },
+      ],
       order: { created_at: "DESC" },
     });
   }
