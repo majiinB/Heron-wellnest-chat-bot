@@ -5,7 +5,7 @@ import { ChatMessageRepository } from "../repository/chatMessage.repository.js";
 import { ChatSessionService } from "./chatSession.service.js";
 import { AppError } from "../types/appError.type.js";
 import type { EncryptedField } from "../types/encryptedField.type.js";
-import type { PaginatedJournalEntries } from "../types/paginatedJournalEtntries.type.js";
+import type { PaginatedSessionMessages } from "../types/paginatedSessionMessages.type.js";
 import { decrypt, encrypt } from "../utils/crypto.util.js";
 import { toSafeChatMessage, toSafeChatMessages } from "../utils/message.util.js";
 import { publishMessage } from "../utils/pubsub.util.js";
@@ -185,114 +185,36 @@ export class ChatMessageService {
     return toSafeChatMessage(botMessage, this.decryptField);
   }
 
-//   /**
-//  * Retrieves a list of journal entries for a specific user, optionally paginated by the last entry ID.
-//  * Decrypts the content of each entry before returning.
-//  *
-//  * @param userId - The unique identifier of the user whose journal entries are to be retrieved.
-//  * @param limit - The maximum number of entries to return. Defaults to 10.
-//  * @param lastEntryId - (Optional) The ID of the last entry from the previous page, used for pagination.
-//  * @param timeFilter - (Optional) Filter entries by time period: 'today', 'yesterday', 'this_week', 'last_week'. Defaults to 'all'.
-//  * @returns A promise that resolves to an array of decrypted journal entries for the user.
-//  */
-//   public async getEntriesByUser(
-//     userId: string,
-//     limit: number = 10,
-//     lastEntryId?: string,
-//     timeFilter: 'today' | 'yesterday' | 'this_week' | 'last_week' | 'all' = 'all'
-//   ) : Promise<PaginatedJournalEntries> {
-//     const fetchLimit: number = limit + 1; // Fetch one extra to check if there's more
+  /**
+ * Retrieves a list of journal entries for a specific user, optionally paginated by the last entry ID.
+ * Decrypts the content of each entry before returning.
+ *
+ * @param userId - The unique identifier of the user whose journal entries are to be retrieved.
+ * @param limit - The maximum number of entries to return. Defaults to 10.
+ * @param lastEntryId - (Optional) The ID of the last entry from the previous page, used for pagination.
+ * @param timeFilter - (Optional) Filter entries by time period: 'today', 'yesterday', 'this_week', 'last_week'. Defaults to 'all'.
+ * @returns A promise that resolves to an array of decrypted journal entries for the user.
+ */
+  public async getSessionMessagesByUser(
+    userId: string,
+    sessionId: string,
+    limit: number = 10,
+    lastMessageId?: string,
+  ) : Promise<PaginatedSessionMessages> {
+    const fetchLimit: number = limit + 1; // Fetch one extra to check if there's more
 
-//     const entries : JournalEntry[] = await this.journalRepo.findByUserAfterId(userId, lastEntryId, fetchLimit, timeFilter);
+    const messages: ChatMessage[] = await this.chatMessageRepo.findByMessageAfterId(sessionId, userId, lastMessageId, fetchLimit);
 
-//     const hasMore = entries.length > limit;
+    const hasMore = messages.length > limit;
 
-//     // If more, remove the extra entry
-//     const slicedEntries = hasMore ? entries.slice(0, limit) : entries;
+    // If more, remove the extra entry
+    const slicedEntries = hasMore ? messages.slice(0, limit) : messages;
 
-//     return {
-//       entries: toSafeJournalEntries(slicedEntries, this.decryptField),
-//       hasMore,
-//       nextCursor: hasMore ? slicedEntries[slicedEntries.length - 1].journal_id : undefined,
-//     };
-//   }
+    return {
+      messages: toSafeChatMessages(slicedEntries, this.decryptField),
+      hasMore,
+      nextCursor: hasMore ? slicedEntries[slicedEntries.length - 1].message_id : undefined,
+    };
+  }
 
-//   /**
-//    * Retrieves a journal entry by its ID, decrypting its content before returning.
-//    *
-//    * @param journalId - The unique identifier of the journal entry to retrieve.
-//    * @param userId - The unique identifier of the user who owns the journal entry.
-//    * @returns A promise that resolves to the journal entry with decrypted content, or `null` if not found.
-//    */
-//   public async getEntryById(journalId: string, userId: string): Promise<SafeJournalEntry | null> {
-//     const entry = await this.journalRepo.findById(journalId, userId);
-//     if (!entry) return null;
-
-//     return toSafeJournalEntry(entry, this.decryptField);
-//   }
-
-//   /**
-//    * Updates a journal entry with new content and/or mood.
-//    *
-//    * If `content` is provided, it will be encrypted before updating the entry.
-//    * The method returns the updated journal entry with decrypted content.
-//    * If no entry is found for the given `journalId`, it returns `null`.
-//    *
-//    * @param journalId - The unique identifier of the journal entry to update.
-//    * @param userId - The unique identifier of the user who owns the journal entry.
-//    * @param title - (Optional) The new title for the journal entry.
-//    * @param content - (Optional) The new content for the journal entry.
-//    * @returns A promise that resolves to the updated journal entry with decrypted content, or `null` if not found.
-//    */
-//   public async updateEntry(journalId: string, userId: string, title?: string, content?: string) : Promise<SafeJournalEntry | null> {
-//     let encryptedTitle : EncryptedField | undefined;
-//     let encryptedContent : EncryptedField | undefined;
-
-//     if (title) {
-//       encryptedTitle = encrypt(title, this.secret);
-//     }
-//     if (content) {
-//       encryptedContent = encrypt(content, this.secret);
-//     }
-
-//     const updatedEntry = await this.journalRepo.updateEntry(journalId, userId, encryptedTitle, encryptedContent);
-
-//     if (!updatedEntry) return null;
-
-//     await publishMessage(env.PUBSUB_JOURNAL_TOPIC, {
-//       eventType: 'JOURNAL_ENTRY_UPDATED',
-//       userId,
-//       journalId: updatedEntry.journal_id,
-//       timestamp: new Date().toISOString(),
-//     });
-
-//     return toSafeJournalEntry(updatedEntry, this.decryptField);
-//   }
-
-//   /**
-//    * Soft deletes a journal entry by its ID.
-//    * 
-//    * Marks the specified journal entry as deleted without permanently removing it from the database.
-//    *
-//    * @param journalId - The unique identifier of the journal entry to be soft deleted.
-//    * @param userId - The unique identifier of the user who owns the journal entry.
-//    * @returns A promise that resolves when the operation is complete.
-//    */
-//   public async softDeleteEntry(journalId: string, userId: string): Promise<boolean> {
-
-//     const entry = await this.journalRepo.softDelete(journalId, userId);
-
-//     return entry !== null;
-//   }
-
-//   /**
-//    * Permanently deletes a journal entry by its ID.
-//    * This operation removes the entry from the database and cannot be undone.
-//    *
-//    * @param journalId - The unique identifier of the journal entry to delete.
-//    * @returns A promise that resolves when the deletion is complete.
-//    */
-//   public async hardDeleteEntry(journalId: string, userId: string): Promise<void> {
-//     this.journalRepo.hardDelete(journalId, userId);
-//   }
 }

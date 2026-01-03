@@ -5,7 +5,7 @@ import type { ApiResponse } from "../types/apiResponse.type.js";
 import { AppError } from "../types/appError.type.js";
 import { validateUser } from "../utils/authorization.util.js";
 import type { SafeJournalEntry } from "../types/safeChatMessage.type.js";
-import type { PaginatedJournalEntries } from "../types/paginatedJournalEtntries.type.js";
+import type { PaginatedJournalEntries } from "../types/paginatedSessionMessages.type.js";
 import { validate as isUuid } from "uuid";
 import { isNumbersOnly, looksLikeNonsense } from "../utils/message.util.js";
 

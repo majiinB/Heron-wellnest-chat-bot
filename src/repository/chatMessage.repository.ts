@@ -151,14 +151,14 @@ export class ChatMessageRepository {
    *
    * @param session_id - The unique identifier of the chat session.
    * @param user_id - The unique identifier of the user whose chat messages are to be fetched.
-   * @param lastEntryId - (Optional) The ID of the last chat message from the previous page, used for pagination.
+   * @param lastMessageId - (Optional) The ID of the last chat message from the previous page, used for pagination.
    * @param limit - (Optional) The maximum number of messages to retrieve. Defaults to 10.
    * @returns A promise that resolves to an array of chat messages, ordered by creation date in descending order.
    */
   async findByMessageAfterId(
     session_id: string,
     user_id: string, 
-    lastEntryId?: string, 
+    lastMessageId?: string, 
     limit: number = 10,
   ): Promise<ChatMessage[]> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,8 +166,8 @@ export class ChatMessageRepository {
 
     let where = baseWhere;
 
-    if (lastEntryId) {
-      const lastEntry = await this.repo.findOne({ where: { message_id: lastEntryId } });
+    if (lastMessageId) {
+      const lastEntry = await this.repo.findOne({ where: { message_id: lastMessageId } });
       if (lastEntry) {
         where = [
           { session_id, user_id, is_deleted: false, created_at: LessThan(lastEntry.created_at) },
