@@ -192,7 +192,6 @@ export class ChatMessageService {
  * @param userId - The unique identifier of the user whose journal entries are to be retrieved.
  * @param limit - The maximum number of entries to return. Defaults to 10.
  * @param lastEntryId - (Optional) The ID of the last entry from the previous page, used for pagination.
- * @param timeFilter - (Optional) Filter entries by time period: 'today', 'yesterday', 'this_week', 'last_week'. Defaults to 'all'.
  * @returns A promise that resolves to an array of decrypted journal entries for the user.
  */
   public async getSessionMessagesByUser(

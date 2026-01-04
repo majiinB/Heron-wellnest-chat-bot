@@ -1,6 +1,6 @@
 import express, { Router } from 'express';
 import { heronAuthMiddleware } from '../middlewares/heronAuth.middleware.js';
-import { JournalController } from '../controllers/journal.controller.js';
+import { JournalController } from '../controllers/chatSession.controller.js';
 import { asyncHandler } from '../utils/asyncHandler.util.js';
 import { JournalEntryRepository } from '../repository/chatSession.repository.js';
 import { JournalService } from '../services/chatSession.service.js';
