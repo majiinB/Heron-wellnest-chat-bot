@@ -19,7 +19,7 @@
  *
  * @author Arthur M. Artugue
  * @created 2025-08-16
- * @updated 2025-11-11
+ * @updated 2026-01-06
  */
 
 import express from 'express';
@@ -30,6 +30,8 @@ import {corsOptions} from './config/cors.config.js';
 import { loggerMiddleware } from './middlewares/logger.middleware.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { env } from './config/env.config.js';
+import sessionRoute from './routes/chatSession.routes.js'
+import messageRoute from './routes/chatMessage.routes.js'
 import fs from 'fs';
 
 const app : express.Express = express();
@@ -81,7 +83,8 @@ app.get('/api/v1/chat-bot/health', (_req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// app.use('/api/v1/chat-bot/mind-mirror', journalRoute);
+app.use('/api/v1/chat-bot/session', sessionRoute);
+app.use('/api/v1/chat-bot/message', messageRoute); 
 
 app.use(errorMiddleware); // Custom error handling middleware
 

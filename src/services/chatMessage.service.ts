@@ -44,7 +44,7 @@ const BLOCKED_STATUSES: ChatSession["status"][] = [
  * 
  * @author Arthur M. Artugue
  * @created 2025-12-30
- * @updated 2025-12-31
+ * @updated 2026-01-06
  */
 export class ChatMessageService {
   private chatMessageRepo : ChatMessageRepository;

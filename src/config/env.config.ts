@@ -18,7 +18,7 @@ dotenv.config();
  *
  * @author Arthur M. Artugue
  * @created 2025-08-17
- * @updated 2025-10-26
+ * @updated 2026-01-06
  */
 export const envSchema = z.object({
   // Application environment
@@ -42,14 +42,13 @@ export const envSchema = z.object({
   // CORS_ORIGIN: z.string().url(),
 
   // Encryption
-  MESSAGE_CONTENT_ENCRYPTION_KEY: z.string().min(32, "CONTENT_ENCRYPTION_KEY must be at least 32 characters").default("default_content_encryption_key_1234"),
+  MESSAGE_CONTENT_ENCRYPTION_KEY: z.string().min(32, "CONTENT_ENCRYPTION_KEY must be at least 32 characters"),
   MESSAGE_CONTENT_ENCRYPTION_ALGORITHM: z.enum(["aes-256-gcm"]).default("aes-256-gcm"),
   MESSAGE_CONTENT_ENCRYPTION_IV_LENGTH: z.coerce.number().default(16), // in bytes
   MESSAGE_CONTENT_ENCRYPTION_KEY_LENGTH: z.coerce.number().default(32), // in bytes
 
   // Pub/Sub
-  PUBSUB_JOURNAL_TOPIC: z.string().min(1, "PUBSUB_JOURNAL_TOPIC is required").default("journal-topic"),
-  PUBSUB_ACTIVITY_TOPIC: z.string().min(1, "PUBSUB_ACTIVITY_TOPIC is required").default("activity-topic"),
+  PUBSUB_CHAT_BOT_TOPIC: z.string().min(1, "PUBSUB_CHAT_BOT_TOPIC is required")
 }).superRefine((env, ctx) => {
   if (env.JWT_ALGORITHM === "HS256" && !env.JWT_SECRET) {
     ctx.addIssue({

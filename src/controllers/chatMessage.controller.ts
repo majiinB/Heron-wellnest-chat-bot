@@ -29,7 +29,7 @@ import type { PaginatedSessionMessages } from "../types/paginatedSessionMessages
  * 
  * @author Arthur M. Artugue
  * @created 2026-01-03
- * @updated 2026-01-04
+ * @updated 2026-01-06
  */
 export class ChatMessageController {
   private chatMessageService: ChatMessageService;
@@ -227,8 +227,8 @@ export class ChatMessageController {
 
     const response: ApiResponse = {
       success: true,
-      code: "BOT_RESPONSE_RETRIEVED",
-      message: "Bot response retrieved successfully",
+      code: botMessage ? "BOT_RESPONSE_RETRIEVED" : "BOT_RESPONSE_PENDING",
+      message: botMessage ? "Bot response retrieved successfully" : "Bot is still processing your message. Please try again in a moment.",
       data: botMessage
     };
 

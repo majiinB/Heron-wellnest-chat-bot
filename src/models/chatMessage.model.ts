@@ -34,13 +34,6 @@ export class ChatMessage {
   @Column({ type: "jsonb"})
   content_encrypted!: EncryptedField;
 
-  @Column({ 
-    type: "enum",
-    enum: ["pending", "completed", "failed"],
-    default: "pending"
-  })
-  status!: "pending" | "completed" | "failed";
-
   @Column({ type: "integer", nullable: false, default: 0 })
   sequence_number!: number;
 
