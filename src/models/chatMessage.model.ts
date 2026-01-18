@@ -34,7 +34,7 @@ export class ChatMessage {
   @Column({ type: "jsonb"})
   content_encrypted!: EncryptedField;
 
-  @Column({ type: "integer", nullable: false, default: 0 })
+  @Column({ type: "integer", nullable: false})
   sequence_number!: number;
 
   @Column({ type: "boolean", default: false })

@@ -141,13 +141,13 @@ export class ChatMessageService {
     try {
       const entry: ChatMessage = await this.chatMessageRepo.createMessage(userId, sessionId, "student", encryptedContent, nextSequenceNumber);
 
-      // await publishMessage(env.PUBSUB_CHAT_TOPIC, {
-      //   eventType: 'CHAT_MESSAGE_CREATED',
-      //   userId,
-      //   sessionId,
-      //   messageId: entry.message_id,
-      //   timestamp: new Date().toISOString(),
-      // });
+      await publishMessage(env.PUBSUB_CHAT_BOT_TOPIC, {
+        eventType: 'CHAT_MESSAGE_CREATED',
+        userId,
+        sessionId,
+        messageId: entry.message_id,
+        timestamp: new Date().toISOString(),
+      });
 
       await this.chatSessionService.markWaitingForBot(sessionId, userId);
 
