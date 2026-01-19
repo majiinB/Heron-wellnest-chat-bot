@@ -213,7 +213,6 @@ export class ChatMessageService {
     }
     if (botMessage.sequence_number <= userMessage.sequence_number) return null;
 
-    await this.chatSessionService.markActive(sessionId, userId);
     return toSafeChatMessage(botMessage, this.decryptField);
   }
 
