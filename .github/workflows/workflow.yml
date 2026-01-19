@@ -94,7 +94,16 @@ jobs:
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars NODE_ENV=${{ vars.NODE_ENV }},DB_USER=${{ vars.DB_USER }},DB_NAME=${{vars.DB_NAME}},DB_HOST=${{ vars.DB_HOST }},DB_PORT=${{ vars.DB_PORT }},JWT_ISSUER=${{ vars.JWT_ISSUER }},JWT_AUDIENCE=${{ vars.JWT_AUDIENCE }},JWT_ALGORITHM=${{ vars.JWT_ALGORITHM }},MESSAGE_CONTENT_ENCRYPTION_ALGORITHM=${{vars.MESSAGE_CONTENT_ENCRYPTION_ALGORITHM}},PUBSUB_CHAT_BOT_TOPIC=${{ vars.PUBSUB_CHAT_BOT_TOPIC }} \
+            --update-env-vars NODE_ENV=${{ vars.NODE_ENV }} \
+            --update-env-vars DB_USER=${{ vars.DB_USER }} \
+            --update-env-vars DB_NAME=${{ vars.DB_NAME }} \
+            --update-env-vars DB_HOST=${{ vars.DB_HOST }} \
+            --update-env-vars DB_PORT=${{ vars.DB_PORT }} \
+            --update-env-vars JWT_ISSUER=${{ vars.JWT_ISSUER }} \
+            --update-env-vars JWT_AUDIENCE=${{ vars.JWT_AUDIENCE }} \
+            --update-env-vars JWT_ALGORITHM=${{ vars.JWT_ALGORITHM }} \
+            --update-env-vars MESSAGE_CONTENT_ENCRYPTION_ALGORITHM=${{ vars.MESSAGE_CONTENT_ENCRYPTION_ALGORITHM }} \
+            --update-env-vars PUBSUB_CHAT_BOT_TOPIC=${{ vars.PUBSUB_CHAT_BOT_TOPIC }} \
             --set-secrets DB_PASSWORD=DB_PASSWORD:latest,MESSAGE_CONTENT_ENCRYPTION_KEY=CHAT_BOT_CONTENT_ENCRYPTION_KEY:latest,JWT_SECRET=JWT_SECRET:latest \
             --timeout=300 \
             --concurrency=20 \
