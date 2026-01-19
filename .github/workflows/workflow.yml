@@ -81,6 +81,12 @@ jobs:
       # Push Docker image
       - run: docker push ${{ env.REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO}}/${{ env.SERVICE_NAME }}:latest
 
+      # Debug: Check variables
+      - run: |
+          echo "JWT_ALGORITHM=${{ vars.JWT_ALGORITHM }}"
+          echo "PUBSUB_CHAT_BOT_TOPIC=${{ vars.PUBSUB_CHAT_BOT_TOPIC }}"
+          echo "MESSAGE_CONTENT_ENCRYPTION_ALGORITHM=${{ vars.MESSAGE_CONTENT_ENCRYPTION_ALGORITHM }}"
+
       # Deploy to Cloud Run
       - run: |
           gcloud run deploy ${{ env.SERVICE_NAME }} \
