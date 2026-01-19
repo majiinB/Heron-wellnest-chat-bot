@@ -43,7 +43,7 @@ const swaggerOptions = {
     openapi: '3.0.0',
     info: {
       title: 'Heron Wellnest Chat Bot API',
-      version: '1.0.4',
+      version: '1.0.5',
       description:"Heron Wellnest Chat Bot API provides endpoints for managing chat interactions and bot functionalities within the Heron Wellnest platform.",
     },
     servers: [
