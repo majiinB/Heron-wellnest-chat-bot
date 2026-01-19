@@ -1,6 +1,6 @@
-# Heron Wellnest Activities API
+# Heron Wellnest Chat Bot API
 
-A lightweight activities microservice for the Heron Wellnest platform. This service provides endpoints for journals, gratitude jar entries, mood check-ins, flipfeel questionnaires, and user badges/rewards.
+A real-time chat microservice for the Heron Wellnest platform. This service provides endpoints for managing chat sessions and messages between students and an AI-powered wellbeing bot, with support for encrypted message storage and asynchronous bot response handling via Pub/Sub.
 
 ## 📋 Table of Contents
 
@@ -16,10 +16,13 @@ A lightweight activities microservice for the Heron Wellnest platform. This serv
 
 ## ✨ Features
 
-- CRUD for journal entries and gratitude jar entries
-- Mood check-in recording and retrieval
-- Flipfeel questionnaire flow (questions, choices, responses)
-- Badge management and user badge awarding
+- Get or create active chat sessions for authenticated students
+- Send and retrieve encrypted chat messages
+- Asynchronous bot response handling via Google Cloud Pub/Sub
+- Polling endpoint for bot responses with session state management
+- Session status tracking (active, waiting_for_bot, failed, escalated, ended)
+- Message sequence validation to prevent concurrent messages
+- Failed session retry mechanism
 - Role-protected endpoints (student) using JWT-based middleware
 - Type-safe codebase with TypeScript and TypeORM
 
@@ -31,6 +34,8 @@ A lightweight activities microservice for the Heron Wellnest platform. This serv
 - **Database**: PostgreSQL
 - **ORM**: TypeORM
 - **Auth**: JWT-based middleware (service uses `heronAuth.middleware`)
+- **Message Queue**: Google Cloud Pub/Sub
+- **Encryption**: AES-256-CBC for message content
 - **Testing**: Jest
 - **Linting**: ESLint
 - **Containerization**: Docker
@@ -39,14 +44,18 @@ A lightweight activities microservice for the Heron Wellnest platform. This serv
 
 ## 🏗 Architecture
 
-The service follows a simple layered architecture:
+The service follows a layered architecture with asynchronous bot integration:
 
-- Controllers — HTTP handlers and response shaping
-- Services — business logic and orchestration
-- Repositories — TypeORM data access
-- Models — TypeORM entities
+- **Controllers** — HTTP handlers, input validation, and response shaping
+- **Services** — business logic, encryption/decryption, and Pub/Sub publishing
+- **Repositories** — TypeORM data access and database operations
+- **Models** — TypeORM entities (ChatSession, ChatMessage)
 
-Example flow: a request to award a badge -> controller validates and authorizes -> service checks conditions -> repository writes UserBadge -> controller returns ApiResponse.
+### Message Flow
+
+1. **User sends message**: Controller validates → Service encrypts and stores message → Publishes `CHAT_MESSAGE_CREATED` event to Pub/Sub → Session marked as `waiting_for_bot`
+2. **Bot worker processes**: Subscribes to Pub/Sub → Generates response → Stores encrypted bot message → Updates session status to `active`
+3. **User polls for response**: Controller requests bot message → Service decrypts and returns message if available
 
 ## 🚀 Getting Started
 
@@ -62,7 +71,7 @@ Example flow: a request to award a badge -> controller validates and authorizes 
 
 ```bash
 git clone <repository-url>
-cd activities-api
+cd chat-api
 ```
 
 2. Install dependencies
@@ -73,13 +82,7 @@ npm install
 
 3. Create `.env` in the project root (see Environment Variables below)
 
-4. Run database migrations (if you use migrations)
-
-```bash
-npm run migration:run
-```
-
-5. Start the development server
+4. Start the development server
 
 ```bash
 npm run dev
@@ -92,8 +95,8 @@ The API will be available at `http://localhost:8080` by default.
 Build and run locally:
 
 ```bash
-docker build -t hw-activities-api .
-docker run -p 8080:8080 --env-file .env hw-activities-api
+docker build -t hw-chat-bot-api .
+docker run -p 8080:8080 --env-file .env hw-chat-bot-api
 ```
 
 ## 📡 API Endpoints
@@ -158,21 +161,22 @@ Required variables (check `src/config/env.config.ts` for exact names and validat
 
 | Variable | Description | Example |
 |---|---|---|
-| `NODE_ENV` | Application environment | `development` |
+| `NODE_ENV` | Application environment | `development` or `production` |
 | `PORT` | Server port | `8080` |
 | `DB_HOST` | Database host | `localhost` |
 | `DB_PORT` | Database port | `5432` |
 | `DB_USER` | Database user | `postgres` |
 | `DB_PASSWORD` | Database password | `password` |
-| `DB_NAME` | Database name | `activities` |
+| `DB_NAME` | Database name | `chat_bot` |
 | `JWT_SECRET` | JWT signing secret used by `heronAuth` middleware | `your-jwt-secret` |
-| `JWT_ISSUER` | Service that issues the jwt tokens | `issuer-service-api` |
-| `JWT_AUDIENCE` | Audience of the jwt token | `service-user` |
-| `JWT_ALGORITHM` | Algorithm used to encrypt the token | `algorithm` |
-| `CONTENT_ENCRYPTION_KEY` | Encryption key used to encrypt and decrypt user journal entries | `encryption-key` |
-| `CONTENT_ENCRYPTION_ALGORITHM` | Encryption algorithm | `algorithm` |
+| `JWT_ISSUER` | Service that issues the JWT tokens | `heron-auth-api` |
+| `JWT_AUDIENCE` | Audience of the JWT token | `heron-services` |
+| `JWT_ALGORITHM` | Algorithm used to sign the JWT token | `HS256` |
+| `MESSAGE_CONTENT_ENCRYPTION_KEY` | Encryption key (32 bytes) for AES-256-CBC message encryption | `your-32-byte-encryption-key-here` |
+| `MESSAGE_CONTENT_ENCRYPTION_ALGORITHM` | Encryption algorithm | `aes-256-cbc` |
+| `PUBSUB_CHAT_BOT_TOPIC` | Google Cloud Pub/Sub topic name for bot message events | `chat-bot-messages` |
 
-Store production secrets in your platform's secret manager.
+Store production secrets in Google Cloud Secret Manager and reference them in Cloud Run deployment.
 
 ## 🧪 Testing
 
@@ -193,95 +197,98 @@ npm run lint:fix
 
 ### GitHub Actions CI/CD
 
-The repo can be configured with GitHub Actions to build, test, and deploy to Google Cloud Run. Typical flow:
+The repository uses GitHub Actions for automated deployment:
 
-- `staging` branch — run tests and deploy to staging
-- `main` branch — run tests and deploy to production
+- **`staging` branch** — runs ESLint and tests only (no deployment)
+- **`main` branch** — runs ESLint, tests, builds Docker image, pushes to Artifact Registry, and deploys to Google Cloud Run
+
+**Workflow**: Push to `staging` to validate changes → Merge to `main` to deploy to production
 
 ### Manual deploy to Cloud Run
 
 1. Build and push container image
 
 ```bash
-docker build -t <region>-docker.pkg.dev/<project-id>/<repo>/<service>:latest .
-docker push <region>-docker.pkg.dev/<project-id>/<repo>/<service>:latest
+docker build -t us-central1-docker.pkg.dev/heron-wellnest/heron-wellnest-repo/hw-chat-bot-api:latest .
+docker push us-central1-docker.pkg.dev/heron-wellnest/heron-wellnest-repo/hw-chat-bot-api:latest
 ```
 
 2. Deploy
 
 ```bash
-gcloud run deploy activities-api \
-	--image <region>-docker.pkg.dev/<project-id>/<repo>/<service>:latest \
-	--region <region> \
-	--platform managed \
-	--allow-unauthenticated
+gcloud run deploy hw-chat-bot-api \
+  --image us-central1-docker.pkg.dev/heron-wellnest/heron-wellnest-repo/hw-chat-bot-api:latest \
+  --region us-central1 \
+  --platform managed \
+  --allow-unauthenticated \
+  --set-env-vars NODE_ENV=production,DB_USER=...,DB_NAME=...,DB_HOST=...,DB_PORT=5432 \
+  --set-secrets DB_PASSWORD=DB_PASSWORD:latest,MESSAGE_CONTENT_ENCRYPTION_KEY=CONTENT_ENCRYPTION_KEY:latest,JWT_SECRET=JWT_SECRET:latest
 ```
 
 ## 📁 Project Structure
 
 ```
-activities-api/
+chat-api/
+├── .github/
+│   └── workflows/
+│       └── workflow.yml
+├── docs/
+│   └── swagger.yaml
 ├── src/
 │   ├── config/
 │   │   ├── cors.config.ts
 │   │   ├── datasource.config.ts
 │   │   ├── env.config.ts
-|   |   └── pubsub.config.ts
+│   │   └── pubsub.config.ts
 │   ├── controllers/
-|   |   ├── flipfeel.controller.ts
-│   │   ├── gratitudeJar.controller.ts
-│   │   ├── journal.controller.ts
-│   │   ├── moodCheckIn.controller.ts
-│   │   └── userBadge.controller.ts
-|   ├── interface/
-|   |   └── authRequest.interface.ts 
-│   ├── models/
-|   |   ├── badge.model.ts
-|   |   ├── flipFeel.model.ts
-|   |   ├── flipFeelChoices.model.ts
-|   |   ├── flipFeelQuestions.model.ts
-|   |   ├── flipFeelResponse.modelt.ts|
-|   |   ├── gratitudeEntry.model.ts
-│   │   ├── journalEntry.model.ts
-│   │   ├── moodCheckIn.model.ts
-│   │   └── userBadge.model.ts
-│   ├── repository/
-|   |   ├── flipFeel.repository.ts
-|   |   ├── flipFeelChoices.repository.ts
-|   |   ├── flipFeelQuestions.repository.ts
-|   |   ├── flipFeelResponse.repository.ts|
-|   |   ├── gratitudeEntry.repository.ts
-│   │   ├── journalEntry.repository.ts
-│   │   ├── moodCheckIn.repository.ts
-│   │   └── userBadge.repository.ts
-│   ├── routes/
-|   |   ├── flipfeel.route.ts
-|   |   ├── gratitudeJar.routes.ts
-│   │   ├── journal.routes.ts
-|   |   ├── moodCheckIn.route.ts
-│   │   └── userBadge.route.ts
-│   ├── services/
-|   |   ├── flipfeel.service.ts
-|   |   ├── gratitudeJar.service.ts
-│   │   ├── journal.service.ts
-|   |   ├── moodCheckIn.service.ts
-│   │   └── userBadge.service.ts
+│   │   ├── chatMessage.controller.ts
+│   │   └── chatSession.controller.ts
+│   ├── interface/
+│   │   └── authRequest.interface.ts
 │   ├── middlewares/
-|   |   ├── erro.middleware.ts
+│   │   ├── error.middleware.ts
 │   │   ├── heronAuth.middleware.ts
-|   |   └── logger.middleware.ts
+│   │   └── logger.middleware.ts
+│   ├── models/
+│   │   ├── chatMessage.model.ts
+│   │   └── chatSession.model.ts
+│   ├── repository/
+│   │   ├── chatMessage.repository.ts
+│   │   └── chatSession.repository.ts
+│   ├── routes/
+│   │   ├── chatMessage.routes.ts
+│   │   └── chatSession.routes.ts
+│   ├── services/
+│   │   ├── chatMessage.service.ts
+│   │   └── chatSession.service.ts
+│   ├── tests/
+│   │   ├── auth.test.ts
+│   │   └── dbConnection.test.ts
+│   ├── types/
+│   │   ├── accessTokenClaim.type.ts
+│   │   ├── apiResponse.type.ts
+│   │   ├── appError.type.ts
+│   │   ├── auth.type.ts
+│   │   ├── encryptedField.type.ts
+│   │   ├── getOrCreateSessionResult.type.ts
+│   │   ├── jwtConfig.type.ts
+│   │   ├── paginatedSessionMessages.type.ts
+│   │   └── safeChatMessage.type.ts
 │   ├── utils/
-|   |   ├── asyncHandler.util.ts
-|   |   ├── authorization.util.ts
-|   |   ├── crypto.util.ts
-|   |   ├── gratitudeJar.utils.ts
-|   |   ├── journal.util.ts
-|   |   ├── jwt.util.ts
-|   |   ├── logger.util.ts
-|   |   ├── mood.util.ts
-|   |   └── pubsub.util.ts
-│   └── app.ts
+│   │   ├── asyncHandler.util.ts
+│   │   ├── authorization.util.ts
+│   │   ├── crypto.util.ts
+│   │   ├── jwt.util.ts
+│   │   ├── logger.util.ts
+│   │   ├── message.util.ts
+│   │   ├── pubsub.util.ts
+│   │   └── session.util.ts
+│   ├── app.ts
+│   └── index.ts
+├── .gitignore
 ├── Dockerfile
+├── eslint.config.js
+├── jest.config.js
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -301,17 +308,12 @@ npm run lint
 npm run lint:fix
 ```
 
-### Database Migrations
+### API Documentation
 
-```bash
-# Generate migration
-npm run migration:generate -- -n MigrationName
+Interactive API documentation is available via Swagger UI when running the server:
 
-# Run migrations
-npm run migration:run
-
-# Revert migration
-npm run migration:revert
+```
+http://localhost:8080/api-docs
 ```
 
 ## 📄 License
@@ -332,4 +334,4 @@ For issues and questions, please contact the development team.
 
 ---
 
-**Last Updated**: 2025-11-08
+**Last Updated**: 2026-01-19
