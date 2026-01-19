@@ -62,6 +62,8 @@ jobs:
           JWT_SECRET: test-secret-key-for-ci-cd-testing-only-minimum-32-chars
           MESSAGE_CONTENT_ENCRYPTION_KEY: test-secret-key-for-ci-cd-testing-only-minimum-32-chars
           PUBSUB_CHAT_BOT_TOPIC: test-topic
+      - run: |
+          echo "Secret injected? -> ${{ secrets.GCP_KEY != '' }}"
 
       - uses: google-github-actions/auth@v1
         with:
