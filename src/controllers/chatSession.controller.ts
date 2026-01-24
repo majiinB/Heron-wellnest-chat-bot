@@ -4,6 +4,7 @@ import type { ChatSessionService } from "../services/chatSession.service.js";
 import type { ApiResponse } from "../types/apiResponse.type.js";
 import { validateUser } from "../utils/authorization.util.js";
 import type { GetOrCreateSessionResult } from "../types/getOrCreateSessionResult.type.js";
+import type { ChatSession } from "../models/chatSession.model.js";
 
 /**
  * Controller class for handling Chat session-related HTTP requests.
@@ -69,4 +70,31 @@ export class ChatSessionController {
 
     return;
   } 
+
+  public async handleChatSessionClosure(req: AuthenticatedRequest, res: Response, _next: NextFunction): Promise<void> {
+    const userId = req.user?.sub;
+    const userRole = req.user?.role;
+
+    validateUser(userId, userRole, "student");
+
+    const sessionId = req.params.sessionId;
+
+    const session: ChatSession | null = await this.chatSessionService.markCloseSession(sessionId, userId!);
+
+    const response: ApiResponse = {
+      success: true,
+      code: session ? "CHAT_SESSION_CLOSED" : "CHAT_SESSION_NOT_FOUND",
+      message: session ? "Chat session closed successfully" : "Chat session not found",
+      data: session ? {
+        session_id: session?.session_id,
+        status: session?.status,
+        updated_at: session?.updated_at
+      } : null
+    };
+
+    res.status(session ? 200 : 404).json(response);
+
+    return;
+  
+  }
 }

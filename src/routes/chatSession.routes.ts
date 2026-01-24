@@ -131,4 +131,105 @@ const chatSessionController = new ChatSessionController(chatSessionService);
  */
 router.post('/', heronAuthMiddleware, asyncHandler(chatSessionController.handleChatSessionRetrievalAndCreation.bind(chatSessionController)));
 
+/**
+ * @openapi
+ * /session/close:
+ * 
+ *  patch:
+ *    summary: Close an active chat session
+ *   description: Closes the active chat session for the authenticated student user.
+ *   tags:
+ *     - Chat Session
+ *   security:
+ *     - bearerAuth: []
+ *   responses:
+ *     '200':
+ *       description: Chat session closed successfully
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               success:
+ *                 type: boolean
+ *                 example: true
+ *               code:
+ *                 type: string
+ *                 enum: [CHAT_SESSION_CLOSED, CHAT_SESSION_NOT_FOUND]
+ *                 example: CHAT_SESSION_CLOSED
+ *               message:
+ *                 type: string
+ *                 example: Chat session closed successfully
+ *               data:
+ *                 type: object
+ *                 properties:
+ *                   session_id:
+ *                     type: string
+ *                     format: uuid
+ *                     example: 54a2a768-8e62-41ac-8b6e-e5092881000e
+ *                   status:
+ *                     type: string 
+ *                    enum: [active, waiting_for_bot, failed, escalated, ended]
+ *                    example: ended
+ *                   updated_at:
+ *                     type: string
+ *                     format: date-time
+ *                     example: 2026-01-06T12:08:11.190Z
+ *             examples:
+ *               closed:
+ *                 summary: Session closed
+ *                 value:
+ *                   success: true
+ *                   code: CHAT_SESSION_CLOSED
+ *                   message: Chat session closed successfully
+ *                  data:
+ *                    session_id: 54a2a768-8e62-41ac-8b6e-e5092881000e
+ *                    status: ended
+ *                    updated_at: 2026-01-06T12:08:1
+ *            notFound:
+ *              summary: Session not found
+ *              value:
+ *                success: false
+ *                code: CHAT_SESSION_NOT_FOUND
+ *                message: Chat session not found
+ *                data: null
+ *    "401":
+ *    description: Unauthorized - missing or invalid token
+ *    content:
+ *      application/json:
+ *        schema:
+ *          $ref: '#/components/schemas/ErrorResponse'
+ *       examples:
+ *         unauthorized:
+ *           value:
+ *             success: false
+ *             code: "UNAUTHORIZED / AUTH_NO_TOKEN"
+ *            message: "Unauthorized: User ID missing / no token provided"
+ *   "403":
+ *    description: Forbidden - insufficient permissions
+ *    content:
+ *      application/json:
+ *        schema:
+ *          $ref: '#/components/schemas/ErrorResponse'
+ *       examples:
+ *         forbidden:
+ *           value:
+ *            success: false
+ *            code: FORBIDDEN
+ *           message: "Forbidden: Insufficient permissions / Forbidden: student role required"
+ *  "500":
+ *   description: Internal server error
+ *   content:
+ *     application/json:
+ *       schema:
+ *         $ref: '#/components/schemas/ErrorResponse'
+ *       examples:
+ *         serverError:
+ *           value:  
+ *            success: false
+ *            code: INTERNAL_SERVER_ERROR
+ *            message: Internal server error
+ */
+router.patch('/close', heronAuthMiddleware, asyncHandler(chatSessionController.handleChatSessionClosure.bind(chatSessionController)));
+
 export default router;
