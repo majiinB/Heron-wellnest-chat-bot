@@ -233,6 +233,16 @@ export class ChatMessageService {
   ) : Promise<PaginatedSessionMessages> {
     const fetchLimit: number = limit + 1; // Fetch one extra to check if there's more
 
+    const session: ChatSession | null = await this.chatSessionService.getSessionById(sessionId, userId);
+    if (!session) {
+      throw new AppError(
+        404,
+        "SESSION_NOT_FOUND",
+        "Chat session not found for user",
+        true
+      );
+    }
+
     const messages: ChatMessage[] = await this.chatMessageRepo.findByMessageAfterId(sessionId, userId, lastMessageId, fetchLimit);
 
     const hasMore = messages.length > limit;
@@ -242,6 +252,7 @@ export class ChatMessageService {
 
     return {
       messages: toSafeChatMessages(slicedEntries, this.decryptField),
+      sessionStatus: session.status,
       hasMore,
       nextCursor: hasMore ? slicedEntries[slicedEntries.length - 1].message_id : undefined,
     };

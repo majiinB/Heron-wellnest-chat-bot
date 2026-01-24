@@ -250,12 +250,63 @@ router.post('/', heronAuthMiddleware, asyncHandler(chatMessageController.handleC
  *                           created_at:
  *                             type: string
  *                             format: date-time
+ *                             example: 2026-01-24T10:30:00.000Z
+ *                     sessionStatus:
+ *                       type: string
+ *                       enum: [active, waiting_for_bot, failed, escalated, ended]
+ *                       example: active
  *                     hasMore:
  *                       type: boolean
+ *                       example: false
  *                     nextCursor:
  *                       type: string
  *                       format: uuid
  *                       nullable: true
+ *                       example: null
+ *             examples:
+ *               withMessages:
+ *                 summary: Session with messages
+ *                 value:
+ *                   success: true
+ *                   code: CHAT_MESSAGES_RETRIEVED
+ *                   message: Chat messages retrieved successfully
+ *                   data:
+ *                     messages:
+ *                       - message_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+ *                         session_id: 54a2a768-8e62-41ac-8b6e-e5092881000e
+ *                         user_id: 98765432-1234-5678-9abc-def012345678
+ *                         sender_type: student
+ *                         content: "I'm feeling anxious about my upcoming exams"
+ *                         sequence_number: 1
+ *                         created_at: 2026-01-24T10:30:00.000Z
+ *                       - message_id: b2c3d4e5-f6a7-8901-bcde-f12345678901
+ *                         session_id: 54a2a768-8e62-41ac-8b6e-e5092881000e
+ *                         user_id: 98765432-1234-5678-9abc-def012345678
+ *                         sender_type: bot
+ *                         content: "I understand you're feeling anxious. Let's talk about what's bothering you."
+ *                         sequence_number: 2
+ *                         created_at: 2026-01-24T10:30:15.000Z
+ *                     sessionStatus: active
+ *                     hasMore: false
+ *                     nextCursor: null
+ *               withPagination:
+ *                 summary: Paginated response with more messages
+ *                 value:
+ *                   success: true
+ *                   code: CHAT_MESSAGES_RETRIEVED
+ *                   message: Chat messages retrieved successfully
+ *                   data:
+ *                     messages:
+ *                       - message_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+ *                         session_id: 54a2a768-8e62-41ac-8b6e-e5092881000e
+ *                         user_id: 98765432-1234-5678-9abc-def012345678
+ *                         sender_type: student
+ *                         content: "Hello"
+ *                         sequence_number: 1
+ *                         created_at: 2026-01-24T10:00:00.000Z
+ *                     sessionStatus: ended
+ *                     hasMore: true
+ *                     nextCursor: a1b2c3d4-e5f6-7890-abcd-ef1234567890
  *       "400":
  *         description: Bad request - invalid session ID format
  *         content:
