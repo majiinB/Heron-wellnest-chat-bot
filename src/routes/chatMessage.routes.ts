@@ -240,10 +240,10 @@ router.post('/', heronAuthMiddleware, asyncHandler(chatMessageController.handleC
  *                           user_id:
  *                             type: string
  *                             format: uuid
- *                           sender_type:
+ *                           role:
  *                             type: string
  *                             enum: [student, bot]
- *                           content:
+ *                           message:
  *                             type: string
  *                           sequence_number:
  *                             type: integer
@@ -275,15 +275,15 @@ router.post('/', heronAuthMiddleware, asyncHandler(chatMessageController.handleC
  *                       - message_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
  *                         session_id: 54a2a768-8e62-41ac-8b6e-e5092881000e
  *                         user_id: 98765432-1234-5678-9abc-def012345678
- *                         sender_type: student
- *                         content: "I'm feeling anxious about my upcoming exams"
+ *                         role: student
+ *                         message: "I'm feeling anxious about my upcoming exams"
  *                         sequence_number: 1
  *                         created_at: 2026-01-24T10:30:00.000Z
  *                       - message_id: b2c3d4e5-f6a7-8901-bcde-f12345678901
  *                         session_id: 54a2a768-8e62-41ac-8b6e-e5092881000e
  *                         user_id: 98765432-1234-5678-9abc-def012345678
- *                         sender_type: bot
- *                         content: "I understand you're feeling anxious. Let's talk about what's bothering you."
+ *                         role: bot
+ *                         message: "I understand you're feeling anxious. Let's talk about what's bothering you."
  *                         sequence_number: 2
  *                         created_at: 2026-01-24T10:30:15.000Z
  *                     sessionStatus: active
@@ -300,8 +300,8 @@ router.post('/', heronAuthMiddleware, asyncHandler(chatMessageController.handleC
  *                       - message_id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
  *                         session_id: 54a2a768-8e62-41ac-8b6e-e5092881000e
  *                         user_id: 98765432-1234-5678-9abc-def012345678
- *                         sender_type: student
- *                         content: "Hello"
+ *                         role: student
+ *                         message: "Hello"
  *                         sequence_number: 1
  *                         created_at: 2026-01-24T10:00:00.000Z
  *                     sessionStatus: ended
@@ -413,11 +413,11 @@ router.get('/:sessionId/', heronAuthMiddleware, asyncHandler(chatMessageControll
  *                         user_id:
  *                           type: string
  *                           format: uuid
- *                         sender_type:
+ *                         role:
  *                           type: string
  *                           enum: [bot]
  *                           example: bot
- *                         content:
+ *                         message:
  *                           type: string
  *                           example: "I understand you're feeling anxious. Let's talk about what's bothering you."
  *                         sequence_number:
