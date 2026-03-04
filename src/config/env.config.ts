@@ -48,7 +48,10 @@ export const envSchema = z.object({
   MESSAGE_CONTENT_ENCRYPTION_KEY_LENGTH: z.coerce.number().default(32), // in bytes
 
   // Pub/Sub
-  PUBSUB_CHAT_BOT_TOPIC: z.string().min(1, "PUBSUB_CHAT_BOT_TOPIC is required")
+  PUBSUB_CHAT_BOT_TOPIC: z.string().min(1, "PUBSUB_CHAT_BOT_TOPIC is required"),
+
+  // CORS
+  CORS_ALLOWED_ORIGINS: z.string().min(1, "CORS_ALLOWED_ORIGINS is required"),
 }).superRefine((env, ctx) => {
   if (env.JWT_ALGORITHM === "HS256" && !env.JWT_SECRET) {
     ctx.addIssue({
