@@ -97,6 +97,15 @@ export class ChatMessageController {
       );
     }
 
+    if (messageNum > 1000) {
+      throw new AppError(
+        400,
+        'BAD_REQUEST',
+        "Bad Request: Message must be less than 1000 characters",
+        true
+      );
+    }
+
     if(isNumbersOnly(messageTrimed) || looksLikeNonsense(messageTrimed)){
       throw new AppError(
         400,
