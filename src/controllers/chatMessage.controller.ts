@@ -5,7 +5,7 @@ import type { ApiResponse } from "../types/apiResponse.type.js";
 import { AppError } from "../types/appError.type.js";
 import { validateUser } from "../utils/authorization.util.js";
 import { validate as isUuid } from "uuid";
-import { isNumbersOnly, looksLikeNonsense } from "../utils/message.util.js";
+import { isNumbersOnly } from "../utils/message.util.js";
 import type { PaginatedSessionMessages } from "../types/paginatedSessionMessages.type.js";
 
 /**
@@ -106,7 +106,7 @@ export class ChatMessageController {
       );
     }
 
-    if(isNumbersOnly(messageTrimed) || looksLikeNonsense(messageTrimed)){
+    if(isNumbersOnly(messageTrimed)){
       throw new AppError(
         400,
         'BAD_REQUEST',
